@@ -124,60 +124,111 @@ class SplashPage(QtWidgets.QWidget):
 
 
 # ================================================================
-#  DashboardPanel — 仪表盘模块（占位阶段）
-#  仅显示一个红色虚线高亮的矩形占位区域，标识后续可视化模块的位置。
+#  DashboardPanel — 仪表盘模块（图像显示区）
+#  在红色虚线高亮的矩形区域内，左右并排显示两路相机图像。
 #  矩形尺寸：窗口宽度的一半 × 窗口高度的一半；水平居中、垂直置顶。
 # ================================================================
 
 class DashboardPanel(QtWidgets.QWidget):
-    """仪表盘面板（占位阶段）：红色虚线矩形标识后续模块位置
+    """仪表盘面板：红色虚线矩形内左右并排显示两路相机图像
 
     矩形宽 = 主窗口宽度 / 2，高 = 主窗口高度 / 2，
-    水平居中、垂直置顶，内容暂留空，后续在此区域接入可视化模块。
+    水平居中、垂直置顶；内部左右两半分别显示 camera1 / camera2。
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("dashboard-panel")
-        # 占位阶段：无子控件，仅靠 paintEvent 绘制红色虚线矩形
+
+        # 两路图像显示标签（透明背景，让红色虚线边框透出）
+        self.img1_label = QtWidgets.QLabel(self)
+        self.img2_label = QtWidgets.QLabel(self)
+        for lbl in (self.img1_label, self.img2_label):
+            lbl.setAlignment(QtCore.Qt.AlignCenter)
+            lbl.setStyleSheet("background: transparent;")
+            lbl.setMinimumSize(2, 2)
+
+        # 缓存最新 QImage，供窗口缩放时按比例刷新
+        self._img1 = None
+        self._img2 = None
+
+    # ----- 几何 -----
+
+    def _frame_rect(self):
+        """计算占位矩形（窗口宽高的一半，居中置顶）"""
+        win = self.window()
+        win_w = win.width() if win is not None else self.width()
+        win_h = win.height() if win is not None else self.height()
+        rw = win_w / 2
+        rh = win_h / 2
+        x = (self.width() - rw) / 2
+        y = 0
+        return QtCore.QRectF(x, y, rw, rh)
+
+    def _layout_images(self):
+        """根据矩形区域定位两路图像标签（左右各半，留边距给虚线边框）"""
+        r = self._frame_rect()
+        inset = 6   # 留出红色虚线边框 + 间距
+        gap = 8     # 两路图像之间的间隔
+        x = int(r.x() + inset)
+        y = int(r.y() + inset)
+        w = int(r.width() - 2 * inset)
+        h = int(r.height() - 2 * inset)
+        half = (w - gap) // 2
+        self.img1_label.setGeometry(x, y, half, h)
+        self.img2_label.setGeometry(x + half + gap, y, half, h)
+        self._refresh_pixmaps()
 
     def resizeEvent(self, event):
-        """主窗口尺寸变化时重绘，保持矩形居中置顶"""
+        """窗口尺寸变化时重新定位图像标签并重绘"""
         super().resizeEvent(event)
+        self._layout_images()
         self.update()
 
     def paintEvent(self, event):
-        """绘制红色虚线高亮的占位矩形（窗口宽高的一半，居中置顶）"""
+        """绘制红色虚线高亮的矩形边框"""
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
-
-        # 以顶层主窗口尺寸为基准（用户要求相对窗口而非相对本面板）
-        win = self.window()
-        if win is not None:
-            win_w = win.width()
-            win_h = win.height()
-        else:
-            win_w = self.width()
-            win_h = self.height()
-
-        rect_w = win_w / 2
-        rect_h = win_h / 2
-
-        # 水平居中、垂直置顶（矩形顶部贴本面板顶部）
-        x = (self.width() - rect_w) / 2
-        y = 0
-        rect = QtCore.QRectF(x, y, rect_w, rect_h)
-
-        # 红色虚线边框高亮
+        r = self._frame_rect()
         pen = QtGui.QPen(QtGui.QColor("#ff3b30"), 2, QtCore.Qt.DashLine)
         painter.setPen(pen)
         painter.setBrush(QtCore.Qt.NoBrush)
-        painter.drawRect(rect)
-
+        painter.drawRect(r)
         painter.end()
 
+    # ----- 对外接口：ImageSubscriber 信号槽 -----
+
+    @QtCore.Slot(QtGui.QImage)
+    def set_image1(self, qimg):
+        """接收 camera1 图像并显示"""
+        self._img1 = qimg
+        self._refresh_label(self.img1_label, qimg)
+
+    @QtCore.Slot(QtGui.QImage)
+    def set_image2(self, qimg):
+        """接收 camera2 图像并显示"""
+        self._img2 = qimg
+        self._refresh_label(self.img2_label, qimg)
+
+    def _refresh_label(self, label, qimg):
+        """把 QImage 缩放到标签尺寸后贴到 QLabel（保持长宽比）"""
+        if qimg is None or qimg.isNull():
+            return
+        if label.width() < 2 or label.height() < 2:
+            return  # 尚未布局，等 resize 后由 _refresh_pixmaps 贴图
+        pm = QtGui.QPixmap.fromImage(qimg)
+        label.setPixmap(pm.scaled(label.size(), QtCore.Qt.KeepAspectRatio,
+                                  QtCore.Qt.SmoothTransformation))
+
+    def _refresh_pixmaps(self):
+        """窗口缩放后按新尺寸重贴两路图像"""
+        if self._img1 is not None:
+            self._refresh_label(self.img1_label, self._img1)
+        if self._img2 is not None:
+            self._refresh_label(self.img2_label, self._img2)
+
     def play_entrance(self):
-        """占位阶段无入场动画（保留方法以兼容 MainWindow 的调用）"""
+        """无入场动画（保留方法以兼容 MainWindow 的调用）"""
         pass
 
 
@@ -223,6 +274,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dashboard_panel = DashboardPanel()
         self.panel_stack.addWidget(self.dashboard_panel)
 
+        # ROS 图像桥：订阅两路相机话题，图像送至仪表盘矩形区域
+        self._setup_ros_image_bridge()
+
         # 默认显示 splash 页
         self.panel_stack.setCurrentIndex(0)
         QtCore.QTimer.singleShot(SPLASH_DURATION_MS, self._on_splash_finished)
@@ -230,6 +284,27 @@ class MainWindow(QtWidgets.QMainWindow):
         # 底部状态栏
         footer = self._build_footer()
         root_layout.addWidget(footer)
+
+    def _setup_ros_image_bridge(self):
+        """创建 ROS 图像订阅桥并连接到仪表盘；无 ROS 时静默跳过"""
+        try:
+            from ros_bridge.getImg import ImageSubscriber
+        except Exception as e:
+            print(f"[MyOS] 未加载 ROS 图像桥（getImg）: {e}")
+            self.ros_bridge = None
+            return
+        try:
+            self.ros_bridge = ImageSubscriber(parent=self)
+            self.ros_bridge.image1_received.connect(self.dashboard_panel.set_image1)
+            self.ros_bridge.image2_received.connect(self.dashboard_panel.set_image2)
+            self.ros_bridge.start()
+            app = QtWidgets.QApplication.instance()
+            if app is not None:
+                app.aboutToQuit.connect(self.ros_bridge.shutdown)
+            print(f"[MyOS] ROS 图像桥已启动: {self.ros_bridge.topics()}")
+        except Exception as e:
+            print(f"[MyOS] ROS 图像桥启动失败: {e}")
+            self.ros_bridge = None
 
     def _build_header(self):
         """构建顶部标题栏：LOGO | 副标题 | ROS 连接状态"""
