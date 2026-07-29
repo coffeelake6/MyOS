@@ -1,0 +1,17 @@
+#YOLO11左右目的参数
+
+# YOLO11 左右目参数
+
+left:
+  yolo_weight: "/home/coffeelake/A03/perception/src/YOLO11/weights/6840_100epoths.pt"
+  sub_topic: "/sync/img1"
+  conf: 0.3
+  pub: "/yolov11/detection_image01"
+  imageVis: "left_img"
+
+right:
+  yolo_weight: "/home/coffeelake/A03/perception/src/YOLO11/weights/6840_100epoths.pt"
+  sub_topic: "/sync/img2"
+  conf: 0.3
+  pub: "/yolov11/detection_image02"
+  imageVis: "right_img"

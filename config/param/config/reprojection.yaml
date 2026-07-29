@@ -1,0 +1,8 @@
+#重投影参数
+calib_file1: "/home/coffeelake/A03/perception/src/param/calib/A14/0613/A14_left_hesai.yaml"  #/home/coffeelake/A03/perception/src/param/calib/A14/0508(lidar_main_circle)
+calib_file2: "/home/coffeelake/A03/perception/src/param/calib/A14/0613/A14_right_hesai.yaml"
+lidar_topic: "/sync/lidar"
+image1_topic: "/sync/img1"
+image2_topic: "/sync/img2"
+output1_topic: "/reprojection_image1"
+output2_topic: "/reprojection_image2"

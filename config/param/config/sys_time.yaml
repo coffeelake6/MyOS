@@ -1,0 +1,12 @@
+#时间同步节点配置
+
+lidar_sub_topic: "/compensated_lidar" #/compensated_lidar /velodyne_points
+
+camera1_sub_topic: "/01/image_rect_color"
+camera2_sub_topic: "/02/image_rect_color"
+
+camera1_pub_topic: "/sync/img1"
+camera2_pub_topic: "/sync/img2"
+lidar_pub_topic: "/sync/lidar"
+
+max_interval_duration: 0.1

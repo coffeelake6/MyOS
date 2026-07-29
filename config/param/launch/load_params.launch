@@ -1,0 +1,25 @@
+<!--
+参数加载器
+roslaunch param load_params.launch
+-->
+<launch>
+    <!-- 加载时间同步节点配置 -->
+    <rosparam file="$(find param)/config/sys_time.yaml" command="load" ns="/sys_time"/>
+    <!-- 加载YOLO11左右目的参数配置 -->
+    <rosparam file="$(find param)/config/yolo.yaml" command="load" ns="/yolov11"/>
+    <!-- 加载Pointpillars节点参数 -->
+    <rosparam file="$(find param)/config/pointpillars.yaml" command="load" ns="/pointpillars"/>
+    <!-- 加载DBSCAN节点参数 -->
+    <rosparam file="$(find param)/config/dbscan.yaml" command="load" ns="/dbscan"/>
+    <!-- 加载IOU节点参数 -->
+    <rosparam file="$(find param)/config/iou.yaml" command="load" ns="/iou"/>
+    <!-- 加载重投影节点参数 -->
+    <rosparam file="$(find param)/config/reprojection.yaml" command="load" ns="/reprojection"/>
+    <rosparam file="$(find param)/config/yolovis.yaml" command="load" ns="/yolovis"/>
+    <!-- 发布参数加载完成标志 -->
+    <node pkg="rostopic" type="rostopic" name="param_loaded_check"
+          args="pub /param_loaded std_msgs/Bool 'data: true' -r 1"/>
+           <!-- 加载YOLO可视化节点参数 -->
+    
+
+</launch>
