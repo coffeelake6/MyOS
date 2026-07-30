@@ -136,3 +136,40 @@ class ImageSubscriber(QtCore.QObject):
         qimg = self._to_qimage(msg)
         if qimg is not None:
             self.image2_received.emit(qimg)
+
+
+# ------------------------------------------------------------------
+#  工厂函数：创建并启动图像订阅桥
+# ------------------------------------------------------------------
+
+def setup_image_bridge(parent, slot1, slot2):
+    """创建并启动图像订阅桥，连接到 slot1/slot2；失败返回 None。
+
+    把 ImageSubscriber 的创建、信号连接、后台线程启动、退出清理
+    统一封装在此，调用方只需提供父对象与两个槽函数即可。
+
+    Args:
+        parent: QObject 父对象（用于内存管理）
+        slot1:  camera1 图像到达时的回调（QImage）
+        slot2:  camera2 图像到达时的回调（QImage）
+
+    Returns:
+        ImageSubscriber 实例；创建或启动失败时返回 None。
+    """
+    try:
+        bridge = ImageSubscriber(parent=parent)
+    except Exception as e:
+        print(f"[getImg] 创建图像订阅桥失败: {e}")
+        return None
+    try:
+        bridge.image1_received.connect(slot1)
+        bridge.image2_received.connect(slot2)
+        bridge.start()
+        app = QtCore.QCoreApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(bridge.shutdown)
+        print(f"[getImg] 图像桥已启动: {bridge.topics()}")
+        return bridge
+    except Exception as e:
+        print(f"[getImg] 图像桥启动失败: {e}")
+        return None
