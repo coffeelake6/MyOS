@@ -45,6 +45,7 @@ class ImageSubscriber(QtCore.QObject):
         self._yaml_path = yaml_path
         self._bridge = CvBridge()
         self._topics = self._load_topics()
+        self._subs = {}   # camera -> Subscriber，供运行时切换话题
         self._started = False
 
     def _load_topics(self):
@@ -59,6 +60,38 @@ class ImageSubscriber(QtCore.QObject):
     def topics(self):
         """返回当前读取到的话题，便于外部打印确认"""
         return dict(self._topics)
+
+    def set_topic(self, camera, topic):
+        """运行时切换某一路相机的订阅话题
+
+        Args:
+            camera: "cam1" 或 "cam2"
+            topic:  新的 ROS 话题名
+
+        Returns:
+            bool: 是否切换成功
+        """
+        if camera not in ("cam1", "cam2"):
+            return False
+        old = self._topics.get(camera)
+        if old == topic:
+            return True  # 话题未变化
+        sub = self._subs.get(camera)
+        if sub is not None:
+            try:
+                sub.unregister()
+            except Exception as e:
+                print(f"[getImg] 注销旧订阅失败: {e}")
+        handler = self._on_cam1 if camera == "cam1" else self._on_cam2
+        try:
+            self._topics[camera] = topic
+            self._subs[camera] = rospy.Subscriber(topic, Image, handler, queue_size=1)
+        except Exception as e:
+            print(f"[getImg] 订阅 {topic} 失败: {e}")
+            self._topics[camera] = old  # 回滚
+            return False
+        print(f"[getImg] {camera} 已切换话题 -> {topic}")
+        return True
 
     # ------------------------------------------------------------------
     #  启动 / 关闭
@@ -89,10 +122,10 @@ class ImageSubscriber(QtCore.QObject):
             print(f"[getImg] rospy 初始化失败: {e}")
             return
 
-        rospy.Subscriber(self._topics["cam1"], Image,
-                         self._on_cam1, queue_size=1)
-        rospy.Subscriber(self._topics["cam2"], Image,
-                         self._on_cam2, queue_size=1)
+        self._subs["cam1"] = rospy.Subscriber(self._topics["cam1"], Image,
+                                              self._on_cam1, queue_size=1)
+        self._subs["cam2"] = rospy.Subscriber(self._topics["cam2"], Image,
+                                              self._on_cam2, queue_size=1)
         rospy.loginfo("[getImg] 订阅: cam1=%s cam2=%s",
                       self._topics["cam1"], self._topics["cam2"])
         rospy.spin()
