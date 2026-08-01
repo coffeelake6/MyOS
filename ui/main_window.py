@@ -49,8 +49,8 @@ class MainWindow(QtWidgets.QMainWindow):
         root_layout.setSpacing(16)
 
         # 顶部标题栏
-        header = HeaderBar()
-        root_layout.addWidget(header)
+        self.header_bar = HeaderBar()
+        root_layout.addWidget(self.header_bar)
 
         # QStackedWidget 卡片叠
         self.panel_stack = QtWidgets.QStackedWidget()
@@ -76,6 +76,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """splash 定时器到期：流体过渡到图像显示页面
            交叉淡化 + 上浮，OutCubic 弹簧缓动"""
         self.splash_page.stop_animation()
+
+        # 过渡开始：标题栏右侧同步淡入双 logo，与 splash 中心 logo 形成“迁移”连续感
+        self.header_bar.show_logos()
 
         # 给图像面板加透明度效果，从 0 淡入到 1
         opacity_effect = QtWidgets.QGraphicsOpacityEffect(self.show_img)
