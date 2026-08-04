@@ -56,7 +56,7 @@ class HeaderBar(QtWidgets.QWidget):
         logos_layout.setContentsMargins(0, 0, 0, 0)
         logos_layout.setSpacing(12)
         logos_layout.addWidget(self._make_logo_label(SCHOOL_LOGO_PATH))
-        logos_layout.addWidget(self._make_logo_label(TEAM_LOGO_PATH))
+        #logos_layout.addWidget(self._make_logo_label(TEAM_LOGO_PATH))
         layout.addWidget(self._logos)
         # 初始不可见（透明度 0），等待过渡动画结束时展示
         self._logos_effect = QtWidgets.QGraphicsOpacityEffect(self._logos)

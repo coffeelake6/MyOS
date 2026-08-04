@@ -103,46 +103,52 @@ class SplashPage(QtWidgets.QWidget):
         painter.setPen(QtCore.Qt.NoPen)
         painter.drawEllipse(QtCore.QPointF(cx, cy), glow_radius, glow_radius)
 
-        # --- 学校 / 车队 logo：SZPU 居中偏左、魅影方程式居中偏右 ---
-        # 垂直对齐标题中线，错峰淡入 + 上浮（Apple 式“落定”入场）
-        gap = 190                 # 与画面中线的水平间距（避开大标题 MyOS）
+        # --- MyOS 大标题（左）与学校 LOGO（右）呈左右对称 ---
+        # 两者组成一个整体，绕画面中线对称分布；标题微缩放呼吸
+        title_font = QtGui.QFont("SF Pro Display", 80, QtGui.QFont.Bold)
+        title_font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, -2)
+        title_w = int(QtGui.QFontMetricsF(title_font).horizontalAdvance("MyOS"))
         school_h = 60             # 校名（超宽字标）高度
-        if self._school_img is not None:
-            a = self._entrance(0, 650, t)
-            sw = int(school_h * self._school_img.width() / self._school_img.height())
-            sx = int(cx - gap - sw)
-            sy = int(cy - school_h / 2 + 16 * (1 - a))
-            pm = self._scaled_logo("school", self._school_img, sw, school_h)
-            painter.setOpacity(a)
-            painter.drawPixmap(sx, sy, pm)
-            painter.setOpacity(1.0)
-        if self._team_img is not None:
-            a = self._entrance(120, 650, t)   # 校名之后错峰入场
-            team_h = int(min(120, max(56, cy - 60)))   # 小窗口自适应
-            tw = int(team_h * self._team_img.width() / self._team_img.height())
-            tx = int(cx + gap)
-            ty = int(cy - team_h / 2 + 16 * (1 - a))
-            pm = self._scaled_logo("team", self._team_img, tw, team_h)
-            painter.setOpacity(a)
-            painter.drawPixmap(tx, ty, pm)
-            painter.setOpacity(1.0)
+        school_w = (int(school_h * self._school_img.width() / self._school_img.height())
+                    if self._school_img is not None else 0)
+        gap = 56                  # 标题与校名之间的间距
+        pair_w = title_w + gap + school_w   # 组合总宽，绕画面中线对称
 
-        # --- 大标题 MyOS：微缩放呼吸 + 负字距收紧 ---
+        # 大标题（左侧）：微缩放呼吸 + 负字距收紧
         scale = 1.0 + 0.04 * breath
         painter.save()
         painter.translate(cx, cy)
         painter.scale(scale, scale)
-        painter.setFont(QtGui.QFont("SF Pro Display", 80, QtGui.QFont.Bold))
-        # 大字负字距：字越大字距越开，需收紧
-        title_font = QtGui.QFont("SF Pro Display", 80, QtGui.QFont.Bold)
-        title_font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, -2)
         painter.setFont(title_font)
         title_color = QtGui.QColor("#00d4aa")
         title_color.setAlphaF(0.85 + 0.15 * breath)
         painter.setPen(title_color)
-        painter.drawText(QtCore.QRect(-w // 2, -65, w, 130),
+        painter.drawText(QtCore.QRect(int(-pair_w / 2), -65, title_w, 130),
                          QtCore.Qt.AlignCenter, "MyOS")
         painter.restore()
+
+        # 学校 LOGO（右侧）：错峰淡入 + 上浮
+        if self._school_img is not None:
+            a = self._entrance(0, 650, t)
+            sx = int(cx + pair_w / 2 - school_w)
+            sy = int(cy - school_h / 2 + 16 * (1 - a))
+            pm = self._scaled_logo("school", self._school_img, school_w, school_h)
+            painter.setOpacity(a)
+            painter.drawPixmap(sx, sy, pm)
+            painter.setOpacity(1.0)
+
+        # 车队 logo（暂不显示，需要时取消注释即可）
+        # if self._team_img is not None:
+        #     a = self._entrance(120, 650, t)   # 校名之后错峰入场
+        #     # 车队 logo 目标显示高度 150（明显大于校名，突出品牌感），随窗口高度自适应
+        #     team_h = int(max(96, min(150, cy - 60)))
+        #     tw = int(team_h * self._team_img.width() / self._team_img.height())
+        #     tx = int(cx + gap)
+        #     ty = int(cy - team_h / 2 + 16 * (1 - a))
+        #     pm = self._scaled_logo("team", self._team_img, tw, team_h)
+        #     painter.setOpacity(a)
+        #     painter.drawPixmap(tx, ty, pm)
+        #     painter.setOpacity(1.0)
 
         # --- 副标题 ---
         sub_font = QtGui.QFont("SF Pro Text", 15)

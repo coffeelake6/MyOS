@@ -17,6 +17,7 @@ from PySide6 import QtCore, QtWidgets, QtGui
 from SplashPage import SplashPage
 from showImg import showImg
 from base import HeaderBar, FooterBar
+from param_modification import ParamModificationPanel
 
 # splash 页显示时长（毫秒），到期后自动切换到仪表盘
 SPLASH_DURATION_MS = 2200
@@ -52,7 +53,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.header_bar = HeaderBar()
         root_layout.addWidget(self.header_bar)
 
-        # QStackedWidget 卡片叠
+        # QStackedWidget 卡片叠（第 0 页启动画面 / 第 1 页图像+参数）
         self.panel_stack = QtWidgets.QStackedWidget()
         root_layout.addWidget(self.panel_stack, stretch=1)
 
@@ -60,9 +61,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.splash_page = SplashPage()
         self.panel_stack.addWidget(self.splash_page)
 
-        # 第 1 页：图像显示模块（构造时自动接入 ROS 图像桥）
+        # 第 1 页：图像显示 + 右侧参数修改面板（合并为一页）
+        page1 = QtWidgets.QWidget()
+        page1_layout = QtWidgets.QHBoxLayout(page1)
+        page1_layout.setContentsMargins(0, 0, 0, 0)
+        page1_layout.setSpacing(16)
+
+        
         self.show_img = showImg()
-        self.panel_stack.addWidget(self.show_img)
+        page1_layout.addWidget(self.show_img, stretch=1)
+
+        self.param_panel = ParamModificationPanel()
+        page1_layout.addWidget(self.param_panel)
+        self.panel_stack.addWidget(page1)
 
         # 默认显示 splash 页
         self.panel_stack.setCurrentIndex(0)
