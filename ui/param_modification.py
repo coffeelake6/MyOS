@@ -8,7 +8,7 @@
 # 新增/删减模块只需修改 MODULES 列表或实现 ModuleInterface 即可。
 #
 # 设计（Apple Fluid Interface）：
-#   - 模块列表：悬停/选中背景平滑过渡（120ms OutCubic），选中项左侧强调条
+#   - 模块选择区：横向分段，悬停/选中背景平滑过渡（120ms OutCubic），选中项底部强调条
 #   - 页面切换：内容区淡入（160ms OutCubic），结束后移除特效避免压平子级阴影
 
 from abc import ABC, abstractmethod
@@ -59,7 +59,7 @@ class ParamGroupInterface(ABC):
 
 
 class ModuleInterface(ABC):
-    """模块接口：感知 / 建图 / 规划 / 控制 / 仿真"""
+    """模块接口：感知 / 建图 / 规划 / 控制 / 驱动"""
 
     module_name = ""    # 模块名，如 "感知"
 
@@ -118,10 +118,10 @@ class ControlModule(ModuleInterface):
         return []
 
 
-class SimulationModule(ModuleInterface):
-    """仿真模块 —— 待配置参数组"""
+class SDKModule(ModuleInterface):
+    """SDK模块 —— 待配置参数组"""
 
-    module_name = "仿真"
+    module_name = "驱动"
 
     def groups(self):
         return []
@@ -133,7 +133,7 @@ MODULES = [
     MappingModule(),
     PlanningModule(),
     ControlModule(),
-    SimulationModule(),
+    SDKModule(),
 ]
 
 
@@ -152,11 +152,10 @@ def _lerp_color(c1, c2, t):
 
 
 class _ModuleRow(QtWidgets.QPushButton):
-    """模块切换行：悬停/按压/选中背景平滑过渡，选中项左侧强调条"""
+    """横向模块选择单元：悬停/按压/选中背景平滑过渡，选中项底部强调条"""
 
-    def __init__(self, index, text, parent=None):
+    def __init__(self, text, parent=None):
         super().__init__(text, parent)
-        self._index = index      # 序号（显示 01 / 02 ...）
         self._hover = 0.0
         self._press = 0.0
         self._active = 0.0
@@ -251,29 +250,23 @@ class _ModuleRow(QtWidgets.QPushButton):
         p.setPen(QtCore.Qt.NoPen)
         p.setBrush(bg)
         p.drawRoundedRect(QtCore.QRectF(0, 0, r.width() - 1, r.height() - 1), 8, 8)
-        # 左侧强调条（选中时淡入）
+        # 底部强调条（选中时淡入）
         if self._active > 0:
             p.setBrush(QtGui.QColor(0, 212, 170, int(255 * self._active)))
-            p.drawRoundedRect(QtCore.QRectF(2, 10, 3, 16), 1.5, 1.5)
-        # 序号
-        f = p.font()
-        f.setPixelSize(11)
+            p.drawRoundedRect(QtCore.QRectF(10, r.height() - 4,
+                                            r.width() - 20, 2), 1, 1)
+        # 模块名（居中）
+        f = self.font()
+        f.setPixelSize(12)
         p.setFont(f)
-        p.setPen(QtGui.QColor("#565a64"))
-        p.drawText(QtCore.QRect(14, 0, 26, r.height()),
-                   QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, "%02d" % self._index)
-        # 模块名
-        f2 = self.font()
-        f2.setPixelSize(13)
-        p.setFont(f2)
         p.setPen(_lerp_color(QtGui.QColor("#e5e5ea"), QtGui.QColor("#00d4aa"), self._active))
-        p.drawText(QtCore.QRect(44, 0, r.width() - 56, r.height()),
-                   QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, self.text())
+        p.drawText(QtCore.QRect(2, 0, r.width() - 4, r.height()),
+                   QtCore.Qt.AlignCenter, self.text())
         p.end()
 
 
 class ParamModificationPanel(QtWidgets.QWidget):
-    """参数修改主面板：上方模块列表 + 下方参数组内容区（固定宽 320）"""
+    """参数修改主面板：上方横向模块选择区 + 下方参数组内容区（固定宽 320）"""
 
     def __init__(self, modules=None, parent=None):
         super().__init__(parent)
@@ -293,17 +286,17 @@ class ParamModificationPanel(QtWidgets.QWidget):
                             "letter-spacing: 0.01em;")
         root.addWidget(title)
 
-        # 模块列表
-        list_box = QtWidgets.QWidget()
-        list_layout = QtWidgets.QVBoxLayout(list_box)
-        list_layout.setContentsMargins(0, 0, 0, 0)
-        list_layout.setSpacing(4)
-        for i, m in enumerate(self._modules, 1):
-            row = _ModuleRow(i, m.module_name)
-            row.clicked.connect(lambda _=False, idx=i - 1: self._select_module(idx))
-            list_layout.addWidget(row)
+        # 模块选择区（横向分段）
+        selector = QtWidgets.QWidget()
+        sel_layout = QtWidgets.QHBoxLayout(selector)
+        sel_layout.setContentsMargins(0, 0, 0, 0)
+        sel_layout.setSpacing(6)
+        for i, m in enumerate(self._modules):
+            row = _ModuleRow(m.module_name)
+            row.clicked.connect(lambda _=False, idx=i: self._select_module(idx))
+            sel_layout.addWidget(row, stretch=1)
             self._rows.append(row)
-        root.addWidget(list_box)
+        root.addWidget(selector)
 
         # 分隔线
         divider = QtWidgets.QFrame()
@@ -340,11 +333,6 @@ class ParamModificationPanel(QtWidgets.QWidget):
             label.setStyleSheet("color: #565a64; font-size: 12px;")
             label.setWordWrap(True)
             v.addWidget(label)
-            if module.module_name == "感知":
-                sub = QtWidgets.QLabel("示例：YOLO · Pointpillars · 时间同步")
-                sub.setAlignment(QtCore.Qt.AlignCenter)
-                sub.setStyleSheet("color: #3a3e47; font-size: 11px;")
-                v.addWidget(sub)
         v.addStretch(1)
         return page
 

@@ -53,6 +53,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.header_bar = HeaderBar()
         root_layout.addWidget(self.header_bar)
 
+
+
         # QStackedWidget 卡片叠（第 0 页启动画面 / 第 1 页图像+参数）
         self.panel_stack = QtWidgets.QStackedWidget()
         root_layout.addWidget(self.panel_stack, stretch=1)
@@ -61,13 +63,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.splash_page = SplashPage()
         self.panel_stack.addWidget(self.splash_page)
 
+
         # 第 1 页：图像显示 + 右侧参数修改面板（合并为一页）
         page1 = QtWidgets.QWidget()
         page1_layout = QtWidgets.QHBoxLayout(page1)
         page1_layout.setContentsMargins(0, 0, 0, 0)
         page1_layout.setSpacing(16)
 
-        
+
         self.show_img = showImg()
         page1_layout.addWidget(self.show_img, stretch=1)
 
