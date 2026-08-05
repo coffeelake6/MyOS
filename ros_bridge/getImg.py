@@ -24,6 +24,8 @@ from cv_bridge import CvBridge
 
 from PySide6 import QtCore, QtGui
 
+from . import ensure_ros_node
+
 
 class ImageSubscriber(QtCore.QObject):
     """订阅两路相机 Image 话题，转 QImage 后发出信号
@@ -109,17 +111,10 @@ class ImageSubscriber(QtCore.QObject):
         t.start()
 
     def _run(self):
-        """ROS 工作线程：init_node → 订阅 → spin"""
-        try:
-            # disable_signals=True：不注册 SIGINT 处理器。
-            # 否则 init_node 在非主线程调用 signal.signal() 会报
-            # "signal only works in main thread"。Qt 端用 aboutToQuit 管理关闭。
-            rospy.init_node("myos_image_sub", anonymous=True, disable_signals=True)
-        except rospy.ROSInitException:
-            # 节点已初始化，忽略
-            pass
-        except Exception as e:  # 其它初始化失败（如无 master）
-            print(f"[getImg] rospy 初始化失败: {e}")
+        """ROS 工作线程：共享节点初始化 → 订阅 → spin"""
+        # 与数据桥共用同一个 ROS 节点（进程内只 init 一次），线程安全；
+        # disable_signals=True 避免在非主线程调用 signal.signal() 报错。
+        if not ensure_ros_node():
             return
 
         self._subs["cam1"] = rospy.Subscriber(self._topics["cam1"], Image,
