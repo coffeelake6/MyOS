@@ -16,6 +16,7 @@ from PySide6 import QtCore, QtWidgets, QtGui
 
 from SplashPage import SplashPage
 from showImg import showImg
+from showData import showData
 from base import HeaderBar, FooterBar
 from param_modification import ParamModificationPanel
 
@@ -73,6 +74,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.show_img = showImg()
         page1_layout.addWidget(self.show_img, stretch=1)
+
+        self.show_data = showData()
+        page1_layout.addWidget(self.show_data)
 
         self.param_panel = ParamModificationPanel()
         page1_layout.addWidget(self.param_panel)
