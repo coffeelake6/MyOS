@@ -1,7 +1,6 @@
 # showImg.py — MyOS 图像显示模块
 #
-# 在红色虚线高亮的矩形区域内，左右并排显示两路相机图像。
-# 矩形尺寸：窗口宽度的一半 × 窗口高度的一半；水平居中、垂直置顶。
+# 单张画面大卡片：标题栏 + 左右两路画面 + 各自话题选择器。
 # 构造时自动接入 ROS 图像桥（ros_bridge.getImg），无 ROS 时静默跳过。
 # 每路画面下方各有一个话题选择器，可随时切换该路相机的订阅话题。
 #
@@ -232,29 +231,48 @@ class TopicPopup(QtWidgets.QWidget):
     #  打开 / 关闭
     # ------------------------------------------------------------------
 
-    def open_animated(self, global_anchor, width):
-        """从按钮锚点展开弹层（优先向下，溢出则向上）"""
+    def open_animated(self, global_anchor, width, bounds=None):
+        """从按钮锚点展开弹层
+
+        Args:
+            global_anchor: 按钮左下角（全局坐标，含下方间距）
+            width:         面板宽度（= 按钮宽度）
+            bounds:        允许面板出现的全局区域；面板始终限制在其内，
+                          优先向下展开，放不下则向上翻转。
+        """
         n = len(self._items)
         panel_w = width
         panel_h = n * (_ITEM_H + 2) - 2 + 2 * _PANEL_PAD
-        scr = QtGui.QGuiApplication.screenAt(global_anchor)
-        if scr is None:
-            scr = QtGui.QGuiApplication.primaryScreen()
-        avail = scr.availableGeometry()
+        x = global_anchor.x()
+        y = global_anchor.y()
+        self._dir = 1
+        if bounds is not None:
+            b = bounds
+            # 水平限位
+            x = max(b.left() + 2, min(x, b.right() - panel_w - 2))
+            # 垂直：优先向下，放不下则向上翻转
+            if y + panel_h > b.bottom() - 2:
+                self._dir = -1
+                y = global_anchor.y() - panel_h - (COMBO_HEIGHT + 12)
+                if y < b.top() + 2:
+                    y = b.top() + 2
+        else:
+            scr = QtGui.QGuiApplication.screenAt(global_anchor)
+            if scr is None:
+                scr = QtGui.QGuiApplication.primaryScreen()
+            avail = scr.availableGeometry()
+            x = min(x, avail.right() - panel_w - 8)
+            if y + panel_h > avail.bottom():
+                self._dir = -1
+                y = global_anchor.y() - panel_h + 8
         pop_w = panel_w + 2 * _MARGIN
         pop_h = panel_h + 2 * _MARGIN
-        x = min(global_anchor.x() - _MARGIN, avail.right() - pop_w - 8)
-        self._dir = 1
-        y = global_anchor.y() - _MARGIN
-        if y + pop_h > avail.bottom():
-            self._dir = -1
-            y = global_anchor.y() - pop_h + 8
         start_h = _ITEM_H + 2 * _PANEL_PAD  # 展开起始高度（单行）
-        final = QtCore.QRect(x, y, pop_w, pop_h)
+        final = QtCore.QRect(x - _MARGIN, y - _MARGIN, pop_w, pop_h)
         if self._dir > 0:
-            start = QtCore.QRect(x, y, pop_w, start_h)          # 顶部锚定，向下展开
+            start = QtCore.QRect(final.x(), final.y(), pop_w, start_h)          # 顶部锚定，向下展开
         else:
-            start = QtCore.QRect(x, y + pop_h - start_h, pop_w, start_h)  # 底部锚定
+            start = QtCore.QRect(final.x(), final.y() + pop_h - start_h, pop_w, start_h)  # 底部锚定
         self.setGeometry(final)
         self._list.setGeometry(_MARGIN, _MARGIN, panel_w, panel_h)
         self._closing = False
@@ -400,6 +418,7 @@ class TopicSelector(QtWidgets.QPushButton):
         self._press = 0.0
         self._chevron = 0.0
         self._popup = None
+        self._bounds_getter = None
         self.setCursor(QtCore.Qt.PointingHandCursor)
         self.setFixedHeight(COMBO_HEIGHT)
         self._hover_anim = QtCore.QPropertyAnimation(self, b"hover", self)
@@ -445,6 +464,10 @@ class TopicSelector(QtWidgets.QPushButton):
 
     def set_topics(self, topics):
         self._topics = list(topics)
+
+    def set_popup_bounds(self, getter):
+        """设置弹层允许出现的全局区域获取器（无参、返回 QRect）"""
+        self._bounds_getter = getter
 
     def set_current(self, text):
         if not text:
@@ -503,7 +526,8 @@ class TopicSelector(QtWidgets.QPushButton):
             self._popup.topic_selected.connect(self._on_popup_choice)
         self._popup.set_topics(self._topics, self._current)
         gp = self.mapToGlobal(QtCore.QPoint(0, self.height() + 6))
-        self._popup.open_animated(gp, self.width())
+        bounds = self._bounds_getter() if self._bounds_getter is not None else None
+        self._popup.open_animated(gp, self.width(), bounds)
         self._animate_chevron(180.0)
 
     def _on_popup_choice(self, text):
@@ -550,42 +574,93 @@ class TopicSelector(QtWidgets.QPushButton):
         p.end()
 
 
-class showImg(QtWidgets.QWidget):
-    """图像显示面板：红色虚线矩形内左右并排显示两路相机图像
+class _ImageCard(QtWidgets.QWidget):
+    """画面大卡片：标题栏 + 左右两路画面 + 各自话题选择器（合并为一张卡片）
 
-    矩形宽 = 主窗口宽度 / 2，高 = 主窗口高度 / 2，
-    水平居中、垂直置顶；内部左右两半分别显示 camera1 / camera2。
-    每路画面下方有一个话题选择器，可切换订阅话题。
+    卡片表面由 paintEvent 自绘（圆角 + 描边），风格与实时数据 / 参数修改面板一致。
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("image-card")
+
+        root = QtWidgets.QVBoxLayout(self)
+        root.setContentsMargins(14, 12, 14, 14)
+        root.setSpacing(10)
+
+        # 标题栏
+        header = QtWidgets.QHBoxLayout()
+        title_label = QtWidgets.QLabel("相机画面")
+        title_label.setStyleSheet("color: #e5e5ea; font-size: 13px; font-weight: 600;")
+        header.addWidget(title_label)
+        header.addStretch(1)
+        root.addLayout(header)
+
+        # 两路画面（无缝衔接：无间隔、无边框、无圆角，融合为一块连续视窗）
+        images = QtWidgets.QHBoxLayout()
+        images.setSpacing(0)
+        self.img1_label = self._make_view_label("CAM1 无信号")
+        self.img2_label = self._make_view_label("CAM2 无信号")
+        images.addWidget(self.img1_label, stretch=1)
+        images.addWidget(self.img2_label, stretch=1)
+        root.addLayout(images, stretch=1)
+
+        # 两个话题选择器（并排）
+        selectors = QtWidgets.QHBoxLayout()
+        selectors.setSpacing(12)
+        self.topic_selector1 = TopicSelector(CAMERA_TOPICS, self)
+        self.topic_selector2 = TopicSelector(CAMERA_TOPICS, self)
+        selectors.addWidget(self.topic_selector1, stretch=1)
+        selectors.addWidget(self.topic_selector2, stretch=1)
+        root.addLayout(selectors)
+
+    @staticmethod
+    def _make_view_label(text):
+        """画面标签：纯深底（无边框/圆角，便于两路无缝衔接）"""
+        label = QtWidgets.QLabel(text)
+        label.setAlignment(QtCore.Qt.AlignCenter)
+        label.setStyleSheet(
+            "background-color: #0a0b10;"
+            "color: #6c6c70;"
+            "font: 13px 'SF Pro Text', 'Segoe UI', sans-serif;"
+        )
+        label.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                            QtWidgets.QSizePolicy.Expanding)
+        label.setMinimumSize(2, 2)
+        return label
+
+    def paintEvent(self, e):
+        """绘制卡片圆角底 + 描边"""
+        p = QtGui.QPainter(self)
+        p.setRenderHint(QtGui.QPainter.Antialiasing)
+        p.setPen(QtGui.QPen(QtGui.QColor("#1f232d"), 1))
+        p.setBrush(QtGui.QColor("#12141a"))
+        p.drawRoundedRect(QtCore.QRectF(0.5, 0.5,
+                                        self.width() - 1, self.height() - 1), 12, 12)
+        p.end()
+
+
+class showImg(QtWidgets.QWidget):
+    """图像显示模块：一张画面大卡片（左右两路画面 + 各自话题选择器）"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.setObjectName("dashboard-panel")
-
-        # 两路视频窗口（QLabel 充当显示屏）：
-        # 深色底 + 细边框 + 圆角，即便没有画面也能看到窗口轮廓
-        self.img1_label = QtWidgets.QLabel(self)
-        self.img2_label = QtWidgets.QLabel(self)
-        for lbl in (self.img1_label, self.img2_label):
-            lbl.setAlignment(QtCore.Qt.AlignCenter)
-            lbl.setStyleSheet(
-                "background-color: #0a0b10;"
-                "border: 1px solid #2a2b36;"
-                "border-radius: 6px;"
-                "color: #6c6c70;"
-                "font: 13px 'SF Pro Text', 'Segoe UI', sans-serif;"
-            )
-            lbl.setMinimumSize(2, 2)
-
-        # 无画面时显示占位提示（首帧到达后由 _refresh_label 清空）
-        self.img1_label.setText("CAM1\n无信号")
-        self.img2_label.setText("CAM2\n无信号")
+        # 让父布局正确分配尺寸（无自身布局时需显式声明可扩展，否则 resizeEvent 不触发）
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                           QtWidgets.QSizePolicy.Expanding)
 
         # 缓存最新 QImage，供窗口缩放时按比例刷新
         self._img1 = None
         self._img2 = None
 
-        # ROS 图像桥：订阅两路相机话题，图像送至本面板的两个 QLabel
+        # 画面大卡片：限定在原占位区域内（窗口宽高的一半，水平居中偏左、置顶）
+        self.card = _ImageCard(self)
+        self.img1_label = self.card.img1_label
+        self.img2_label = self.card.img2_label
+        self.card.setGeometry(self._frame_rect().toRect())
+
+        # ROS 图像桥：订阅两路相机话题，图像送至两张卡片的画面区
         # 无 ROS 时静默跳过，UI 仍可独立运行
         try:
             from ros_bridge.getImg import setup_image_bridge
@@ -594,9 +669,11 @@ class showImg(QtWidgets.QWidget):
             print(f"[showImg] 未启用 ROS 图像桥: {e}")
             self._bridge = None
 
-        # 两路画面下方的话题选择器（自绘下拉 + 交互动画）
-        self.cam1_combo = TopicSelector(CAMERA_TOPICS, self)
-        self.cam2_combo = TopicSelector(CAMERA_TOPICS, self)
+        # 话题选择器（弹层限定在本模块区域内）
+        self.cam1_combo = self.card.topic_selector1
+        self.cam2_combo = self.card.topic_selector2
+        self.cam1_combo.set_popup_bounds(self._global_bounds)
+        self.cam2_combo.set_popup_bounds(self._global_bounds)
         if self._bridge is not None:
             cur = self._bridge.topics()
             self.cam1_combo.set_current(cur.get("cam1"))
@@ -604,53 +681,34 @@ class showImg(QtWidgets.QWidget):
         self.cam1_combo.topic_selected.connect(self._on_cam1_topic_changed)
         self.cam2_combo.topic_selected.connect(self._on_cam2_topic_changed)
 
-    # ----- 几何 -----
+        self._entrance_anims = []
 
     def _frame_rect(self):
-        """计算占位矩形（窗口宽高的一半，居中置顶）"""
+        """计算卡片区域（窗口宽高的一半，水平居中偏左、置顶）
+
+        宽度钳制在本模块宽度内：窗口过小被侧栏挤压时退化为铺满本模块，
+        避免卡片越界（超出模块可绘制范围会被裁剪）。
+        """
         win = self.window()
         win_w = win.width() if win is not None else self.width()
         win_h = win.height() if win is not None else self.height()
-        rw = win_w / 2
+        rw = min(win_w / 2, self.width())
         rh = win_h / 2 - 100
         x = (self.width() - rw) / 16
         y = 0
         return QtCore.QRectF(x, y, rw, rh)
 
-    def _layout_images(self):
-        """根据矩形区域定位两路图像标签与下方的话题选择器"""
+    def _global_bounds(self):
+        """卡片区域在全局坐标系下的范围（用于限定弹层）"""
         r = self._frame_rect()
-        inset = 6   # 留出红色虚线边框 + 间距
-        gap = 0     # 两路图像之间的间隔
-        x = int(r.x() + inset)
-        y = int(r.y() + inset)
-        w = int(r.width() - 2 * inset)   # 图像宽度为矩形宽度去边距
-        # 画面高度让出选择器的空间
-        h = int(r.height() - 2 * inset) - COMBO_GAP - COMBO_HEIGHT
-        half = (w - gap) // 2
-        self.img1_label.setGeometry(x, y, half, h)
-        self.img2_label.setGeometry(x + half + gap, y, half, h)
-        combo_y = y + h + COMBO_GAP
-        self.cam1_combo.setGeometry(x, combo_y, half, COMBO_HEIGHT)
-        self.cam2_combo.setGeometry(x + half + gap, combo_y, half, COMBO_HEIGHT)
-        self._refresh_pixmaps()
+        tl = self.mapToGlobal(QtCore.QPoint(int(r.x()), int(r.y())))
+        return QtCore.QRect(tl.x(), tl.y(), int(r.width()), int(r.height()))
 
     def resizeEvent(self, event):
-        """窗口尺寸变化时重新定位图像标签并重绘"""
+        """窗口尺寸变化时重新定位卡片区域并按新尺寸重贴图像"""
         super().resizeEvent(event)
-        self._layout_images()
-        self.update()
-
-    def paintEvent(self, event):
-        """绘制红色虚线高亮的矩形边框"""
-        painter = QtGui.QPainter(self)
-        painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        r = self._frame_rect()
-        pen = QtGui.QPen(QtGui.QColor("#ff3b30"), 2, QtCore.Qt.DashLine)
-        painter.setPen(pen)
-        painter.setBrush(QtCore.Qt.NoBrush)
-        painter.drawRect(r)
-        painter.end()
+        self.card.setGeometry(self._frame_rect().toRect())
+        QtCore.QTimer.singleShot(0, self._refresh_pixmaps)
 
     # ----- 话题切换 -----
 
@@ -676,7 +734,7 @@ class showImg(QtWidgets.QWidget):
         else:
             self._img2 = None
         label.clear()
-        label.setText("CAM1\n无信号" if camera == "cam1" else "CAM2\n无信号")
+        label.setText("CAM1 无信号" if camera == "cam1" else "CAM2 无信号")
 
     # ----- 对外接口：ImageSubscriber 信号槽 -----
 
@@ -711,5 +769,15 @@ class showImg(QtWidgets.QWidget):
             self._refresh_label(self.img2_label, self._img2)
 
     def play_entrance(self):
-        """无入场动画（保留方法以兼容 MainWindow 的调用）"""
-        pass
+        """大卡片淡入（Apple 式）"""
+        eff = QtWidgets.QGraphicsOpacityEffect(self.card)
+        eff.setOpacity(0.0)
+        self.card.setGraphicsEffect(eff)
+        anim = QtCore.QPropertyAnimation(eff, b"opacity", self)
+        anim.setDuration(420)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QtCore.QEasingCurve.OutCubic)
+        anim.start()
+        anim.finished.connect(lambda: self.card.setGraphicsEffect(None))
+        self._entrance_anims.append(anim)
