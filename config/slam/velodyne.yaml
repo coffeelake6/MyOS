@@ -1,0 +1,54 @@
+common:
+    lid_topic:  "/velodyne_points"
+    imu_topic:  "/pbox_pub/Imu0A"
+    time_sync_en: false
+    # 正数表示 LiDAR 相对 IMU 再往后延迟多少秒；负数表示 LiDAR 相对 IMU 提前
+    time_offset_lidar_to_imu: 0.0 #0.007587   # = |Refinement 的 Time Lag IMU to LiDAR|
+    use_imu_time: false
+
+preprocess:
+    lidar_type: 2      # Velodyne
+    scan_line: 64
+    scan_rate: 10
+    timestamp_unit: 0
+    blind: 2
+
+mapping:
+    # IMU 原始测量噪声协方差（越大越相信 LiDAR）
+    acc_cov: 0.05
+    gyr_cov: 0.05
+    # 零偏随机游走协方差
+    b_acc_cov: 0.0001
+    b_gyr_cov: 0.0001
+
+    # 在线外参估计开关（已标定完成可关掉）
+    extrinsic_est_en: false
+    # 平移：Refinement 结果  x/y/z  (meter)
+    extrinsic_T: [0.7875, 0.12829, -0.575773] #0.7875, 0.12829, -0.575773
+    # 旋转：Refinement 的 3×3 行主序旋转矩阵
+    extrinsic_R:  [ 1, 0, 0,
+                   0, 1, 0,
+                   0, 0, 1]
+   
+   
+   #0.9981, 0.0016, -0.0611
+   #0, 0.9996, 0.0262,
+   #0.061, 0.0261, 0.9997
+   # [ 0.999028,  0.035289,  0.026399,
+   # -0.035706,  0.999242,  0.015484,
+   # -0.025832, -0.016412,  0.999532 ]
+
+    fov_degree: 180
+    det_range: 30.0
+
+publish:
+    path_en: true
+    scan_publish_en: true
+    dense_publish_en: true
+    scan_bodyframe_pub_en: true
+    odometry_en: true
+    odometry_publish_en: true
+
+pcd_save:
+    pcd_save_en: false
+    interval: -1

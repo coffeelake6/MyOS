@@ -9,4 +9,4 @@ camera1_pub_topic: "/sync/img1"
 camera2_pub_topic: "/sync/img2"
 lidar_pub_topic: "/sync/lidar"
 
-max_interval_duration: 0.1
+max_interval_duration: 0.3

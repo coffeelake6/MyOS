@@ -17,6 +17,19 @@ from typing import List
 
 from PySide6 import QtCore, QtWidgets, QtGui
 
+from param_store import (
+    ParamStore,
+    PERCEPTION_CONFIG_DIR,
+    perception_display_name_for,
+    PERCEPTION_KEY_NAMES,
+    PERCEPTION_GROUP_NAMES,
+    MAPPING_CONFIG_DIR,
+    mapping_display_name_for,
+    MAPPING_KEY_NAMES,
+    MAPPING_GROUP_NAMES,
+)
+from param_widgets import GroupCard, SaveButton, NotifyBar, INPUT_QSS
+
 # ---------------------------------------------------------------------------
 #  参数数据层（接口风格，便于后期维护与增删）
 # ---------------------------------------------------------------------------
@@ -83,21 +96,96 @@ class ModuleInterface(ABC):
 
 
 class PerceptionModule(ModuleInterface):
-    """感知模块 —— 待配置：YOLO / Pointpillars / 时间同步 等参数组"""
+    """感知模块 —— 读取配置目录下的所有 yaml 参数文件
+
+    通过 config_dir 指定一个文件夹路径，扫描其中全部 *.yaml，
+    每个文件对应一个独立 ROS 功能包（节点），自动生成一个参数组。
+    文件数量不固定：往目录里增删 yaml，UI 自动适配（新增卡片/移除卡片）。
+
+    Args:
+        config_dir: yaml 目录路径；默认 config/param/config
+    """
 
     module_name = "感知"
 
+    def __init__(self, store=None, config_dir=None):
+        # 感知模块的 ParamStore：注入感知专属目录与映射表
+        # （后续建图/规划等模块各自创建自己的 ParamStore，互不混淆）
+        if store is None:
+            store = ParamStore(
+                config_dir if config_dir is not None else PERCEPTION_CONFIG_DIR,
+                display_name_fn=perception_display_name_for,
+                key_names=PERCEPTION_KEY_NAMES,
+                group_names=PERCEPTION_GROUP_NAMES,
+            )
+        self.store = store
+        self.store.load_all()
+
     def groups(self):
-        return []
+        return [YamlGroupAdapter(fs) for fs in self.store.files()]
+
+    def save(self):
+        """一键保存所有 yaml 文件；返回 (ok, 汇总消息)"""
+        return self.store.save_all()
+
+    def reload(self):
+        """全部重新读盘（丢弃未保存修改）；返回变化的文件名列表"""
+        return self.store.reload_all()
+
+
+class YamlGroupAdapter(ParamGroupInterface):
+    """一个 yaml 文件 → 一个参数组（包装 YamlFileStore）"""
+
+    def __init__(self, file_store):
+        self._fs = file_store
+
+    @property
+    def group_name(self):
+        return self._fs.display_name
+
+    @property
+    def filename(self):
+        return self._fs.filename
+
+    @property
+    def file_store(self):
+        return self._fs
+
+    def params(self):
+        """返回扁平化的参数描述（ParamValue 列表，来自数据层）"""
+        return self._fs.params()
 
 
 class MappingModule(ModuleInterface):
-    """建图模块 —— 待配置参数组"""
+    """建图模块 —— 读取 config/slam 下的 yaml 参数文件（lidar-IMU 建图）
+
+    与感知模块同构：注入建图专属目录与映射表，创建独立的 ParamStore，
+    与感知模块互不干扰。目录下增删 yaml 自动适配。
+    """
 
     module_name = "建图"
 
+    def __init__(self, store=None, config_dir=None):
+        if store is None:
+            store = ParamStore(
+                config_dir if config_dir is not None else MAPPING_CONFIG_DIR,
+                display_name_fn=mapping_display_name_for,
+                key_names=MAPPING_KEY_NAMES,
+                group_names=MAPPING_GROUP_NAMES,
+            )
+        self.store = store
+        self.store.load_all()
+
     def groups(self):
-        return []
+        return [YamlGroupAdapter(fs) for fs in self.store.files()]
+
+    def save(self):
+        """一键保存该模块所有 yaml 文件；返回 (ok, 汇总消息)"""
+        return self.store.save_all()
+
+    def reload(self):
+        """全部重新读盘（丢弃未保存修改）；返回变化的文件名列表"""
+        return self.store.reload_all()
 
 
 class PlanningModule(ModuleInterface):
@@ -128,6 +216,7 @@ class SDKModule(ModuleInterface):
 
 
 # 五个模块的注册列表（增删模块改这里即可）
+# 感知 / 建图已接入 yaml 参数；其余模块待配置
 MODULES = [
     PerceptionModule(),
     MappingModule(),
@@ -265,6 +354,154 @@ class _ModuleRow(QtWidgets.QPushButton):
         p.end()
 
 
+class _EditablePage(QtWidgets.QWidget):
+    """一个可编辑模块的参数页：提示条 + yaml 目录 + 滚动卡片区 + 底部保存条
+
+    每个模块（感知/建图/...）各持有一个页面实例，拥有独立的 store、
+    卡片列表、保存状态与外部修改处理，互不干扰。
+    """
+
+    def __init__(self, module, store, parent=None):
+        super().__init__(parent)
+        self._module = module
+        self.store = store
+        self._cards = []
+        self._cards_by_name = {}
+        self._pending_conflict = None
+        self.setStyleSheet(INPUT_QSS)  # 输入控件深色样式（仅本页生效）
+
+        v = QtWidgets.QVBoxLayout(self)
+        v.setContentsMargins(8, 12, 8, 8)
+        v.setSpacing(8)
+
+        # 外部修改提示条（默认隐藏）
+        self._notify_bar = NotifyBar()
+        self._notify_bar.reload_requested.connect(self._on_conflict_reload)
+        self._notify_bar.ignore_requested.connect(self._notify_bar.hide_bar)
+        v.addWidget(self._notify_bar)
+
+        # 当前 yaml 文件夹（绝对路径，便于确认导入的目录）
+        dir_label = QtWidgets.QLabel("yaml 目录：%s" % store._config_dir)
+        dir_label.setStyleSheet("color: #565a64; font-size: 10px;")
+        dir_label.setWordWrap(True)
+        v.addWidget(dir_label)
+
+        # 滚动卡片区（每 yaml 一张卡片）
+        cards_w = QtWidgets.QWidget()
+        self._cards_lay = QtWidgets.QVBoxLayout(cards_w)
+        self._cards_lay.setContentsMargins(0, 0, 0, 0)
+        self._cards_lay.setSpacing(10)
+        for g in module.groups():
+            card = GroupCard(g)
+            card.changed.connect(self._refresh_save_state)
+            card.rebuild()
+            self._cards_lay.addWidget(card)
+            self._cards.append(card)
+            self._cards_by_name[g.filename] = card
+        self._cards_lay.addStretch(1)
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        scroll.viewport().setStyleSheet("background: transparent;")
+        scroll.setWidget(cards_w)
+        v.addWidget(scroll, stretch=1)
+
+        # 底部保存条
+        bar = QtWidgets.QWidget()
+        bl = QtWidgets.QHBoxLayout(bar)
+        bl.setContentsMargins(0, 2, 0, 0)
+        bl.setSpacing(8)
+        self._save_summary = QtWidgets.QLabel()
+        self._save_summary.setStyleSheet("color: #8e8e93; font-size: 11px;")
+        self._save_btn = SaveButton("保存全部修改")
+        self._save_btn.setEnabled(False)
+        self._save_btn.clicked.connect(self._save_all)
+        bl.addWidget(self._save_summary, stretch=1)
+        bl.addWidget(self._save_btn)
+        v.addWidget(bar)
+
+        # 外部修改监控：无冲突自动重载；有冲突提示用户；文件增删重建卡片
+        store.file_changed.connect(self._on_file_changed)
+        store.file_conflict.connect(self._on_file_conflict)
+        store.files_scanned.connect(self._rebuild_cards)
+
+        self._refresh_save_state()
+
+    # ------------------------------------------------------------------
+    #  保存 / 刷新 / 外部修改（页面级，状态独立）
+    # ------------------------------------------------------------------
+
+    def _refresh_save_state(self):
+        """刷新保存条状态（修改计数 / 按钮可用性）"""
+        n = self.store.dirty_count()
+        self._save_btn.setEnabled(n > 0)
+        if n > 0:
+            self._save_summary.setText("%d 项修改待保存" % n)
+            self._save_summary.setStyleSheet("color: #00d4aa; font-size: 11px;")
+        else:
+            self._save_summary.setText("所有修改已保存")
+            self._save_summary.setStyleSheet("color: #565a64; font-size: 11px;")
+
+    def _save_all(self):
+        """一键保存本模块全部 yaml 文件"""
+        ok, msg = self._module.save()
+        self._save_btn.set_result(ok, msg)
+        for card in self._cards:
+            card.refresh_dirty()
+        self._refresh_save_state()
+
+    def reload_all(self):
+        """目录扫描 + 全部重新读盘（丢弃未保存修改）"""
+        self.store.scan()  # 捕捉文件增删（内部发 files_scanned → 重建卡片）
+        changed = self.store.reload_all()
+        for name in changed:
+            card = self._cards_by_name.get(name)
+            if card is not None:
+                card.rebuild()
+        self._refresh_save_state()
+
+    def _rebuild_cards(self):
+        """目录扫描发现文件增删：按最新文件列表重建全部卡片"""
+        for card in self._cards:
+            self._cards_lay.removeWidget(card)
+            card.deleteLater()
+        self._cards = []
+        self._cards_by_name = {}
+        for g in self._module.groups():
+            card = GroupCard(g)
+            card.changed.connect(self._refresh_save_state)
+            card.rebuild()
+            self._cards_lay.insertWidget(self._cards_lay.count() - 1, card)
+            self._cards.append(card)
+            self._cards_by_name[g.filename] = card
+        self._refresh_save_state()
+
+    def _on_file_changed(self, filename):
+        """外部修改文件且无本地冲突：数据层已重载，重建对应卡片"""
+        card = self._cards_by_name.get(filename)
+        if card is not None:
+            card.rebuild()
+        self._refresh_save_state()
+
+    def _on_file_conflict(self, filename):
+        """外部修改文件但本地有未保存修改：提示用户选择"""
+        self._pending_conflict = filename
+        self._notify_bar.show_message(filename)
+
+    def _on_conflict_reload(self):
+        """用户选择「重新加载」：丢弃本地修改，按磁盘内容重建"""
+        name = self._pending_conflict
+        card = self._cards_by_name.get(name) if name else None
+        if card is not None:
+            card._adapter.file_store.reload()
+            card.rebuild()
+        self._notify_bar.hide_bar()
+        self._pending_conflict = None
+        self._refresh_save_state()
+
+
 class ParamModificationPanel(QtWidgets.QWidget):
     """参数修改主面板：上方横向模块选择区 + 下方参数组内容区（固定宽 320）"""
 
@@ -280,11 +517,31 @@ class ParamModificationPanel(QtWidgets.QWidget):
         root.setContentsMargins(16, 14, 16, 16)
         root.setSpacing(12)
 
-        # 标题
+        # 标题行：标题 + 右侧重新读取按钮
+        title_row = QtWidgets.QHBoxLayout()
+        title_row.setSpacing(6)
         title = QtWidgets.QLabel("参数修改")
         title.setStyleSheet("color: #e5e5ea; font-size: 15px; font-weight: 600; "
                             "letter-spacing: 0.01em;")
-        root.addWidget(title)
+        title_row.addWidget(title)
+        title_row.addStretch(1)
+        self._refresh_btn = QtWidgets.QPushButton("\u21bb")
+        self._refresh_btn.setFixedSize(24, 24)
+        self._refresh_btn.setCursor(QtCore.Qt.PointingHandCursor)
+        self._refresh_btn.setToolTip("重新读取所有 yaml 文件（丢弃未保存的修改）")
+        self._refresh_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #8e8e93; border: none;"
+            " border-radius: 12px; font-size: 14px; }"
+            "QPushButton:hover { background: #1b1f29; color: #e5e5ea; }"
+            "QPushButton:pressed { background: #14161d; }"
+            "QPushButton:disabled { color: #3a3e49; }")
+        self._refresh_btn.clicked.connect(self._reload_all)
+        title_row.addWidget(self._refresh_btn)
+        root.addLayout(title_row)
+
+        # 可编辑页面列表（感知/建图等已接入 yaml 的模块各占一页）
+        self._editable_pages = []
+        self._refresh_btn.setEnabled(False)
 
         # 模块选择区（横向分段）
         selector = QtWidgets.QWidget()
@@ -318,23 +575,100 @@ class ParamModificationPanel(QtWidgets.QWidget):
     # ----- 模块页构建 -----
 
     def _build_module_page(self, module):
-        """构建单个模块的内容页：目前为空态占位，参数组接入后在此渲染"""
+        """构建单个模块的内容页
+
+        模块带 store（感知/建图等已接入 yaml）→ 可编辑参数页（独立实例）；
+        否则显示空态占位。
+        """
+        store = getattr(module, "store", None)
+        if store is not None and module.groups():
+            page = _EditablePage(module, store)
+            self._editable_pages.append(page)
+            self._refresh_btn.setEnabled(True)
+            return page
         page = QtWidgets.QWidget()
         v = QtWidgets.QVBoxLayout(page)
         v.setContentsMargins(8, 12, 8, 12)
         v.addStretch(1)
-        if module.groups():
-            # 有参数组时逐组渲染（待实现）
-            for g in module.groups():
-                pass
-        else:
-            label = QtWidgets.QLabel("「%s」参数组待配置" % module.module_name)
-            label.setAlignment(QtCore.Qt.AlignCenter)
-            label.setStyleSheet("color: #565a64; font-size: 12px;")
-            label.setWordWrap(True)
-            v.addWidget(label)
+        label = QtWidgets.QLabel("「%s」参数组待配置" % module.module_name)
+        label.setAlignment(QtCore.Qt.AlignCenter)
+        label.setStyleSheet("color: #565a64; font-size: 12px;")
+        label.setWordWrap(True)
+        v.addWidget(label)
         v.addStretch(1)
         return page
+
+
+
+    # ------------------------------------------------------------------
+    #  保存 / 刷新 / 外部修改
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    #  刷新（对所有可编辑页面生效）
+    # ------------------------------------------------------------------
+
+    def _reload_all(self):
+        """重新读取全部 yaml 文件（有未保存修改时需确认）"""
+        n = self._active_store.dirty_count() if self._active_store is not None else 0
+        if n > 0:
+            ret = QtWidgets.QMessageBox.question(
+                self, "重新加载",
+                "有 %d 项未保存的修改，重新加载将丢弃它们。\n继续？" % n,
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No)
+            if ret != QtWidgets.QMessageBox.Yes:
+                return
+        self._active_store.scan()  # 捕捉文件增删（内部发 files_scanned → 重建卡片）
+        changed = self._active_store.reload_all()
+        for name in changed:
+            card = self._cards_by_name.get(name)
+            if card is not None:
+                card.rebuild()
+        self._refresh_save_state()
+
+    def _rebuild_cards(self):
+        """目录扫描发现文件增删：按最新文件列表重建全部卡片"""
+        if self._editable_module is None or self._cards_lay is None:
+            return
+        for card in self._cards:
+            self._cards_lay.removeWidget(card)
+            card.deleteLater()
+        self._cards = []
+        self._cards_by_name = {}
+        for g in self._editable_module.groups():
+            card = GroupCard(g)
+            card.changed.connect(self._refresh_save_state)
+            card.rebuild()
+            self._cards_lay.insertWidget(self._cards_lay.count() - 1, card)
+            self._cards.append(card)
+            self._cards_by_name[g.filename] = card
+        self._refresh_save_state()
+
+    def _on_file_changed(self, filename):
+        """外部修改文件且无本地冲突：数据层已重载，重建对应卡片"""
+        card = self._cards_by_name.get(filename)
+        if card is not None:
+            card.rebuild()
+        self._refresh_save_state()
+
+    def _on_file_conflict(self, filename):
+        """外部修改文件但本地有未保存修改：提示用户选择"""
+        self._pending_conflict = filename
+        if self._notify_bar is not None:
+            self._notify_bar.show_message(filename)
+
+    def _on_conflict_reload(self):
+        """用户选择「重新加载」：丢弃本地修改，按磁盘内容重建"""
+        name = self._pending_conflict
+        card = self._cards_by_name.get(name) if name else None
+        if card is not None:
+            card._adapter.file_store.reload()
+            card.rebuild()
+        if self._notify_bar is not None:
+            self._notify_bar.hide_bar()
+        self._pending_conflict = None
+        self._refresh_save_state()
 
     # ----- 切换逻辑 -----
 
