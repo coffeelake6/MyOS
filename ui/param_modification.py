@@ -610,7 +610,8 @@ class ParamModificationPanel(QtWidgets.QWidget):
 
     def _reload_all(self):
         """重新读取全部 yaml 文件（有未保存修改时需确认）"""
-        n = self._active_store.dirty_count() if self._active_store is not None else 0
+        pages = list(self._editable_pages)
+        n = sum(p.store.dirty_count() for p in pages)
         if n > 0:
             ret = QtWidgets.QMessageBox.question(
                 self, "重新加载",
@@ -619,56 +620,10 @@ class ParamModificationPanel(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.No)
             if ret != QtWidgets.QMessageBox.Yes:
                 return
-        self._active_store.scan()  # 捕捉文件增删（内部发 files_scanned → 重建卡片）
-        changed = self._active_store.reload_all()
-        for name in changed:
-            card = self._cards_by_name.get(name)
-            if card is not None:
-                card.rebuild()
-        self._refresh_save_state()
+        for p in pages:
+            p.reload_all()
 
-    def _rebuild_cards(self):
-        """目录扫描发现文件增删：按最新文件列表重建全部卡片"""
-        if self._editable_module is None or self._cards_lay is None:
-            return
-        for card in self._cards:
-            self._cards_lay.removeWidget(card)
-            card.deleteLater()
-        self._cards = []
-        self._cards_by_name = {}
-        for g in self._editable_module.groups():
-            card = GroupCard(g)
-            card.changed.connect(self._refresh_save_state)
-            card.rebuild()
-            self._cards_lay.insertWidget(self._cards_lay.count() - 1, card)
-            self._cards.append(card)
-            self._cards_by_name[g.filename] = card
-        self._refresh_save_state()
 
-    def _on_file_changed(self, filename):
-        """外部修改文件且无本地冲突：数据层已重载，重建对应卡片"""
-        card = self._cards_by_name.get(filename)
-        if card is not None:
-            card.rebuild()
-        self._refresh_save_state()
-
-    def _on_file_conflict(self, filename):
-        """外部修改文件但本地有未保存修改：提示用户选择"""
-        self._pending_conflict = filename
-        if self._notify_bar is not None:
-            self._notify_bar.show_message(filename)
-
-    def _on_conflict_reload(self):
-        """用户选择「重新加载」：丢弃本地修改，按磁盘内容重建"""
-        name = self._pending_conflict
-        card = self._cards_by_name.get(name) if name else None
-        if card is not None:
-            card._adapter.file_store.reload()
-            card.rebuild()
-        if self._notify_bar is not None:
-            self._notify_bar.hide_bar()
-        self._pending_conflict = None
-        self._refresh_save_state()
 
     # ----- 切换逻辑 -----
 

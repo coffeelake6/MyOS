@@ -9,7 +9,7 @@ common:
 preprocess:
     lidar_type: 2      # Velodyne
     scan_line: 64
-    scan_rate: 10
+    scan_rate: 20
     timestamp_unit: 0
     blind: 2
 
