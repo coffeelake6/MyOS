@@ -3,10 +3,10 @@
 # getImg.py — MyOS ROS 图像订阅桥
 #
 # 作用：订阅 ROS 的 sensor_msgs/Image 话题，把图像转成 QImage，
-#       通过 Qt 信号送至 UI 线程，显示在 DashboardPanel 的占位矩形里。
+#       通过 Qt 信号送至 UI 线程，显示在图像面板里。
 #
-# 话题来源：config/param/config/sys_time.yaml
-#           camera1_sub_topic / camera2_sub_topic
+# 话题来源：模块级常量 DEFAULT_INITIAL_TOPICS（启动即订阅），
+#           运行中可通过 set_topic() 切换到 UI 下拉框列出的候选话题。
 #
 # 线程模型：rospy 的回调运行在 rospy 内部线程，不在 Qt 主线程。
 #           Qt 信号跨线程默认走 QueuedConnection，因此 slot 会在 Qt 主线程执行，
@@ -14,10 +14,8 @@
 #
 # ROS 在后台守护线程 spin，避免阻塞 Qt 事件循环；无 ROS master 时也不卡 UI。
 
-import os
 import threading
 
-import yaml
 import rospy
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -25,6 +23,12 @@ from cv_bridge import CvBridge
 from PySide6 import QtCore, QtGui
 
 from . import ensure_ros_node
+
+# 启动时默认订阅的话题（代码常量，随需修改）
+DEFAULT_INITIAL_TOPICS = {
+    "cam1": "/01/image_rect_color",
+    "cam2": "/02/image_rect_color",
+}
 
 
 class ImageSubscriber(QtCore.QObject):
@@ -38,26 +42,13 @@ class ImageSubscriber(QtCore.QObject):
     image1_received = QtCore.Signal(QtGui.QImage)
     image2_received = QtCore.Signal(QtGui.QImage)
 
-    def __init__(self, yaml_path=None, parent=None):
+    def __init__(self, initial_topics=None, parent=None):
         super().__init__(parent)
-        # 默认 yaml 路径：项目根/config/param/config/sys_time.yaml
-        if yaml_path is None:
-            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            yaml_path = os.path.join(root, "config", "param", "config", "sys_time.yaml")
-        self._yaml_path = yaml_path
+        # 启动话题：默认取代码常量；外部可传入定制
+        self._topics = dict(initial_topics) if initial_topics else dict(DEFAULT_INITIAL_TOPICS)
         self._bridge = CvBridge()
-        self._topics = self._load_topics()
         self._subs = {}   # camera -> Subscriber，供运行时切换话题
         self._started = False
-
-    def _load_topics(self):
-        """从 yaml 读取 camera1 / camera2 订阅话题"""
-        with open(self._yaml_path, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
-        return {
-            "cam1": cfg.get("camera1_sub_topic", "/01/image_rect_color"),
-            "cam2": cfg.get("camera2_sub_topic", "/02/image_rect_color"),
-        }
 
     def topics(self):
         """返回当前读取到的话题，便于外部打印确认"""
