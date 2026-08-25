@@ -153,6 +153,82 @@ MAPPING_GROUP_NAMES = {
     "mapping": "建图", "publish": "发布", "pcd_save": "点云保存",
 }
 
+# ============================================================
+#  规划模块导入的 yaml 文件夹（固定绝对路径）
+#  部署/更换机器时修改此路径，或设环境变量 MYOS_PLANNING_DIR 覆盖。
+# ============================================================
+PLANNING_CONFIG_DIR = os.environ.get("MYOS_PLANNING_DIR") or (
+    "/home/coffeelake/MyOS/MyOS/config/planning"
+)
+
+# ---- 规划模块专属：文件名 → 中文显示名 ----
+PLANNING_FILE_DISPLAY_NAMES = {
+    "skidpad.yaml":               "路径生成",
+    "velocity_planner.yaml":      "速度规划",
+    "qp.yaml":                    "QP 优化",
+    "path_planner_interp.yaml":   "样条插值",
+}
+
+
+def planning_display_name_for(filename):
+    """规划模块：yaml 文件名 → 显示名"""
+    return PLANNING_FILE_DISPLAY_NAMES.get(
+        filename, filename[:-5] if filename.endswith(".yaml") else filename)
+
+# ---- 规划模块专属：键名 → 中文显示名 ----
+PLANNING_KEY_NAMES = {
+    # 通用
+    "interval": "路径点间距", "smooth_window": "平滑窗口",
+    "smoothing_window": "平滑窗口", "enable": "总开关",
+    # velocity_planner.yaml
+    "straight_curv_thresh": "直道曲率阈值", "curve1_curv_thresh": "缓弯曲率阈值",
+    "curve2_curv_thresh": "弯道曲率阈值", "curve3_curv_thresh": "急弯曲率阈值",
+    "straight_velocity": "直道速度", "curve1_velocity": "缓弯速度",
+    "curve2_velocity": "弯道速度", "curve3_velocity": "急弯速度",
+    "window_straight": "直道判定窗口", "window_curve": "弯道判定窗口",
+    "transition_points": "过渡平滑点数",
+    "max_acceleration": "最大加速度", "max_deceleration": "最大减速度",
+    "max_velocity": "最大速度上限", "curvature_coefficient": "曲率速度系数",
+    "min_curve_radius": "最小弯道半径", "closed_loop_iterations": "闭环迭代次数",
+    "path_interval": "路径点间隔",
+    # qp.yaml
+    "d_max": "位置偏离上限", "kappa_max": "曲率上限",
+    "smoothness_weight": "保真度权重", "qp_sample_points": "降采样点数",
+    "max_sqp_iter": "SQP 迭代次数", "admm_max_iter": "ADMM 最大迭代",
+    "admm_rho": "ADMM 惩罚参数", "admm_eps_abs": "绝对收敛容差",
+    "admm_eps_rel": "相对收敛容差", "regularization": "数值正则化",
+    "verbose": "调试输出",
+    # skidpad.yaml
+    "car_state_topic_name": "车辆状态话题", "mid_point_topic_name": "路径中点话题",
+    "map_topic_name": "局部地图话题", "path_generate_topic_name": "参考路径话题",
+    "ref_path_topic_name": "可视化路径话题", "total_laps": "总圈数",
+    "desire_vel": "期望速度", "N": "参考路径点数",
+    "dt": "轨迹点时间间隔", "initial_velocity": "初始速度", "node_rate": "节点频率",
+    # path_planner_interp.yaml
+    "sub_midpoints": "路径中点话题", "sub_car_state": "车辆状态话题",
+    "pub_trajectory": "轨迹发布话题", "pub_control_points": "控制点可视化",
+    "pub_point_markers": "路径点标记", "pub_trajectory_cloud": "轨迹点云可视化",
+    "pub_status": "状态话题", "loop_rate": "节点频率",
+    "min_dist_threshold": "最小距离阈值", "start_angle_threshold": "起始角度阈值",
+    "max_attempts": "最大尝试次数", "distance_threshold": "距离阈值",
+    "distance_scale_factor": "距离扩大因子", "start_direction_cos_threshold": "起始方向余弦阈值",
+    "direction_cos_threshold": "拐角余弦阈值", "remaining_ratio": "剩余距离比例",
+    "min_distance_ratio": "最小距离比例", "corner_angle_threshold": "拐角角度阈值",
+    "window_size": "平滑窗口", "min_points": "最小闭合点数",
+    "close_dist_threshold": "闭合距离阈值", "car_dist_threshold": "车辆距离阈值",
+    "car_yaw_threshold": "车辆航向阈值", "ds": "插值步长",
+    "spline_type": "插值方法", "boundary_type": "边界条件",
+    "enable_curvature_smoothing": "曲率平滑", "tension": "张力",
+}
+
+# ---- 规划模块专属：嵌套分组名 → 中文 ----
+PLANNING_GROUP_NAMES = {
+    "realtime": "局部规划", "global": "全局规划", "topics": "话题",
+    "node": "节点", "preprocessing": "预处理", "sorting": "贪心排序",
+    "filter": "距离过滤", "smoothing": "平滑滤波", "closure": "路径闭合",
+    "interpolation": "插值",
+}
+
 
 def group_display(path_prefix, group_names):
     """把嵌套分组路径（如 ('left',)）按映射表转为中文显示名，如 '左目'"""

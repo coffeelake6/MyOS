@@ -35,7 +35,7 @@ class DataItem:
 
     key: str                # 显示键，如 "YOLO推理时间"
     topic: str              # ROS 话题名
-    msg_type: str = "std_msgs/Float64"   # 消息类型，如 "std_msgs/Float64"
+    msg_type: str = "std_msgs/Float32"   # 消息类型，如 "std_msgs/Float64"
     field: str = "data"     # 取值字段路径（点分），如 "data" / "twist.linear.x"
     unit: str = ""          # 单位后缀，如 "ms" / "m/s" / "°"
     decimals: int = 2       # 保留小数位
@@ -43,14 +43,16 @@ class DataItem:
 
 # 监控的数据项列表（增删数据项改这里即可；话题 / 消息类型按实际修改）
 DATA_ITEMS = [
-    DataItem(key="YOLO推理时间", topic="/yolo_detect_time",
-             msg_type="std_msgs/Float64", field="data", unit="ms"),
-    DataItem(key="Pointpillars推理时间", topic="/perception/pointpillars/infer_time",
-             msg_type="std_msgs/Float64", field="data", unit="ms"),
-    DataItem(key="融合速度", topic="/fusion/velocity",
-             msg_type="std_msgs/Float64", field="data", unit="m/s"),
-    DataItem(key="当前发布转角", topic="/control/steering_angle",
-             msg_type="std_msgs/Float64", field="data", unit="°"),
+    DataItem(key="YOLO推理时间", topic="/yolov11_time",
+             msg_type="std_msgs/Float32", field="data", unit="ms"),
+    DataItem(key="Pointpillars推理时间", topic="/pointpillars_trt_time",
+             msg_type="std_msgs/Float32", field="data", unit="ms"),
+    DataItem(key="融合速度", topic="/iou_fusion_time",
+             msg_type="std_msgs/Float32", field="data", unit="ms"),
+    DataItem(key="运动补偿", topic="/motion_compensation_time",
+             msg_type="std_msgs/Float32", field="data", unit="ms"),
+    DataItem(key="点云坐标转换", topic="/cluster_tf_time",
+             msg_type="std_msgs/Float32", field="data", unit="ms"),
 ]
 
 

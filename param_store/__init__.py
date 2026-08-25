@@ -34,6 +34,12 @@ from .store import (
     MAPPING_KEY_NAMES,
     MAPPING_GROUP_NAMES,
     mapping_display_name_for,
+    # ---- 规划模块专属常量 / 函数 ----
+    PLANNING_CONFIG_DIR,
+    PLANNING_FILE_DISPLAY_NAMES,
+    PLANNING_KEY_NAMES,
+    PLANNING_GROUP_NAMES,
+    planning_display_name_for,
 )
 
 __all__ = [
@@ -50,4 +56,9 @@ __all__ = [
     "MAPPING_KEY_NAMES",
     "MAPPING_GROUP_NAMES",
     "mapping_display_name_for",
+    "PLANNING_CONFIG_DIR",
+    "PLANNING_FILE_DISPLAY_NAMES",
+    "PLANNING_KEY_NAMES",
+    "PLANNING_GROUP_NAMES",
+    "planning_display_name_for",
 ]

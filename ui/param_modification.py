@@ -27,6 +27,10 @@ from param_store import (
     mapping_display_name_for,
     MAPPING_KEY_NAMES,
     MAPPING_GROUP_NAMES,
+    PLANNING_CONFIG_DIR,
+    planning_display_name_for,
+    PLANNING_KEY_NAMES,
+    PLANNING_GROUP_NAMES,
 )
 from param_widgets import GroupCard, SaveButton, NotifyBar, INPUT_QSS
 
@@ -189,12 +193,36 @@ class MappingModule(ModuleInterface):
 
 
 class PlanningModule(ModuleInterface):
-    """规划模块 —— 待配置参数组"""
+    """规划模块 —— 读取 config/planning 下的 yaml 参数文件
+
+    与感知/建图模块同构：注入规划专属目录与映射表，创建独立的 ParamStore。
+    目前包含：路径生成(skidpad)、速度规划(velocity_planner)、
+    QP 优化(qp)、样条插值(path_planner_interp)。
+    """
 
     module_name = "规划"
 
+    def __init__(self, store=None, config_dir=None):
+        if store is None:
+            store = ParamStore(
+                config_dir if config_dir is not None else PLANNING_CONFIG_DIR,
+                display_name_fn=planning_display_name_for,
+                key_names=PLANNING_KEY_NAMES,
+                group_names=PLANNING_GROUP_NAMES,
+            )
+        self.store = store
+        self.store.load_all()
+
     def groups(self):
-        return []
+        return [YamlGroupAdapter(fs) for fs in self.store.files()]
+
+    def save(self):
+        """一键保存该模块所有 yaml 文件；返回 (ok, 汇总消息)"""
+        return self.store.save_all()
+
+    def reload(self):
+        """全部重新读盘（丢弃未保存修改）；返回变化的文件名列表"""
+        return self.store.reload_all()
 
 
 class ControlModule(ModuleInterface):
@@ -216,7 +244,7 @@ class SDKModule(ModuleInterface):
 
 
 # 五个模块的注册列表（增删模块改这里即可）
-# 感知 / 建图已接入 yaml 参数；其余模块待配置
+# 感知 / 建图 / 规划已接入 yaml 参数；其余模块待配置
 MODULES = [
     PerceptionModule(),
     MappingModule(),

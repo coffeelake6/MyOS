@@ -1,0 +1,42 @@
+# ============================================================
+# path_generator_highway 速度规划参数（独立于路径生成参数）
+# 由 launch/skidpad.launch 与 skidpad.yaml 一并加载
+# ============================================================
+velocity:
+  # ---------- 局部规划（第一圈/开环赛道） ----------
+  # 策略：根据曲率阈值分级判定道路类型，写死速度
+  realtime:
+    smooth_window: 5           # 平滑窗口（与 transition_points 取大值）
+
+    # ---- 曲率阈值判定 ----
+    # window_curve 点滑动窗口计算平均曲率，判定弯道等级
+    straight_curv_thresh: 0.012    # 曲率 < 此值 → 直道
+    curve1_curv_thresh: 0.045      # 曲率 ≥ 此值 → 缓弯
+    curve2_curv_thresh: 0.075      # 曲率 ≥ 此值 → 弯道
+    curve3_curv_thresh: 0.150      # 曲率 ≥ 此值 → 急弯
+
+    # ---- 各道路类型速度 ----
+    straight_velocity: 2.5        # 直道速度 (m/s)
+    curve1_velocity: 2.5           # 缓弯速度 (m/s)
+    curve2_velocity: 2.5           # 弯道速度 (m/s)
+    curve3_velocity: 2.5           # 急弯速度 (m/s)
+
+    # ---- 判定窗口 ----
+    window_straight: 10            # 直道判定窗口（点数）
+    window_curve: 5               # 弯道判定窗口（点数）
+
+    # ---- 过渡平滑 ----
+    # 移动平均窗口，越大过渡越平缓
+    transition_points: 1
+
+  # ---------- 全局规划（赛道闭合后/循迹） ----------
+  # 策略：连续曲率限制 + 前向后向扫描，速度连续平滑
+  global:
+    max_acceleration: 1.8         # 最大加速度 (m/s²) 
+    max_deceleration: -1.8         # 最大减速度 (m/s²) 
+    max_velocity: 8.0             # 最大速度上限 (m/s)
+    curvature_coefficient: 1.8     # 曲率速度系数: v = coeff * √R，最大侧向加速度的开方
+    min_curve_radius: 5.5          # 最小弯道半径 (m)
+    smooth_window: 1              # 速度平滑窗口
+    closed_loop_iterations: 6      # 闭合路径迭代次数
+    path_interval: 0.1             # 路径点间隔 (m)
