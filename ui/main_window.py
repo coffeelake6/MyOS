@@ -19,6 +19,7 @@ from showImg import showImg
 from showData import showData
 from base import HeaderBar, FooterBar
 from param_modification import ParamModificationPanel
+from launch_panel import LaunchPanel
 
 # splash 页显示时长（毫秒），到期后自动切换到仪表盘
 SPLASH_DURATION_MS = 2200
@@ -37,7 +38,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MyOS A03")
-        self.resize(1280, 800)
+        self.resize(1280, 900)
         self.setMinimumSize(960, 600)
         self._setup_ui()
 
@@ -65,15 +66,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.panel_stack.addWidget(self.splash_page)
 
 
-        # 第 1 页：图像显示 + 右侧参数修改面板（合并为一页）
+        # 第 1 页：左列（图像 + 快捷启动） + 实时数据 + 参数修改（合并为一页）
         page1 = QtWidgets.QWidget()
         page1_layout = QtWidgets.QHBoxLayout(page1)
         page1_layout.setContentsMargins(0, 0, 0, 0)
         page1_layout.setSpacing(16)
 
+        # 左列：上图像卡片（自适应）+ 下快捷启动面板（固定高度）
+        left_col = QtWidgets.QWidget()
+        left_layout = QtWidgets.QVBoxLayout(left_col)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(16)
 
         self.show_img = showImg()
-        page1_layout.addWidget(self.show_img, stretch=1)
+        left_layout.addWidget(self.show_img, stretch=1)
+
+        self.launch_panel = LaunchPanel()
+        left_layout.addWidget(self.launch_panel)
+
+        page1_layout.addWidget(left_col, stretch=1)
 
         self.show_data = showData()
         page1_layout.addWidget(self.show_data)

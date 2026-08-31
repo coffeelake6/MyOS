@@ -58,11 +58,15 @@ class _DataRow(QtWidgets.QWidget):
         self.key_label.setText(fm.elidedText(self._full_key, QtCore.Qt.ElideRight, w))
 
     def set_value(self, text):
-        """更新值；值发生变化时强调色短暂闪烁"""
-        if text == self._last:
-            return
-        self._last = text
-        self.value_label.setText(text)
+        """收到新值：值变化时更新文本；无论值是否变化都重启闪烁。
+
+        形成“实时心跳”——数据持续流入时保持强调色（每帧重启 400ms 定时器），
+        数据停止后约 400ms 内回到默认色。这样暂停 bag / 重新播放后，
+        只要新数据到达就会可见地刷新；数据停了也有明确的状态反馈。
+        """
+        if text != self._last:
+            self._last = text
+            self.value_label.setText(text)
         self.value_label.setStyleSheet(self._style("#00d4aa"))
         self._flash_timer.start(400)
 

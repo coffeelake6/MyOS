@@ -26,6 +26,9 @@ CAMERA_TOPICS = [
 COMBO_HEIGHT = 28   # 话题选择器高度
 COMBO_GAP = 8       # 选择器与画面之间的间距
 
+# 画面“无新帧”看门狗阈值（毫秒）：超过该时长没有新帧即回到“无信号”占位
+STALE_FRAME_MS = 3000
+
 # ---------------------------------------------------------------------------
 #  动画常量（Apple 风格：默认临界阻尼，旋转可带轻微回弹）
 # ---------------------------------------------------------------------------
@@ -654,6 +657,17 @@ class showImg(QtWidgets.QWidget):
         self._img1 = None
         self._img2 = None
 
+        # 画面“无新帧”看门狗：暂停 bag / 数据停止后超过 STALE_FRAME_MS
+        # 没有新帧，画面自动回到“无信号”占位；新帧到达立即恢复（实时刷新）
+        self._cam_had1 = False
+        self._cam_had2 = False
+        self._cam_last1 = QtCore.QElapsedTimer()
+        self._cam_last2 = QtCore.QElapsedTimer()
+        self._stale_timer = QtCore.QTimer(self)
+        self._stale_timer.setInterval(500)
+        self._stale_timer.timeout.connect(self._check_stale)
+        self._stale_timer.start()
+
         # 画面大卡片：限定在原占位区域内（窗口宽高的一半，水平居中偏左、置顶）
         self.card = _ImageCard(self)
         self.img1_label = self.card.img1_label
@@ -686,14 +700,15 @@ class showImg(QtWidgets.QWidget):
     def _frame_rect(self):
         """计算卡片区域（窗口宽高的一半，水平居中偏左、置顶）
 
-        宽度钳制在本模块宽度内：窗口过小被侧栏挤压时退化为铺满本模块，
-        避免卡片越界（超出模块可绘制范围会被裁剪）。
+        宽度钳制在本模块宽度内；高度钳制在本模块可用空间内
+        （预留 6px 底边距），保证卡片永远不会越出 showImg 区域，
+        避免被下方快捷启动面板遮挡。
         """
         win = self.window()
         win_w = win.width() if win is not None else self.width()
         win_h = win.height() if win is not None else self.height()
         rw = min(win_w / 2, self.width())
-        rh = win_h / 2 - 100
+        rh = min(win_h / 2 - 100, self.height() - 6)
         x = (self.width() - rw) / 16
         y = 0
         return QtCore.QRectF(x, y, rw, rh)
@@ -728,11 +743,15 @@ class showImg(QtWidgets.QWidget):
         if not self._bridge.set_topic(camera, topic):
             print(f"[showImg] 切换话题失败: {camera} -> {topic}")
             return
-        # 清掉旧话题的画面，回到占位提示
+        # 清掉旧话题的画面，回到占位提示，并重置看门狗状态
         if camera == "cam1":
             self._img1 = None
+            self._cam_had1 = False
+            self._cam_last1.restart()
         else:
             self._img2 = None
+            self._cam_had2 = False
+            self._cam_last2.restart()
         label.clear()
         label.setText("CAM1 无信号" if camera == "cam1" else "CAM2 无信号")
 
@@ -740,15 +759,40 @@ class showImg(QtWidgets.QWidget):
 
     @QtCore.Slot(QtGui.QImage)
     def set_image1(self, qimg):
-        """接收 camera1 图像并显示"""
+        """接收 camera1 图像并显示（重置该路“无新帧”计时）"""
         self._img1 = qimg
+        self._cam_had1 = True
+        self._cam_last1.restart()
         self._refresh_label(self.img1_label, qimg)
 
     @QtCore.Slot(QtGui.QImage)
     def set_image2(self, qimg):
-        """接收 camera2 图像并显示"""
+        """接收 camera2 图像并显示（重置该路“无新帧”计时）"""
         self._img2 = qimg
+        self._cam_had2 = True
+        self._cam_last2.restart()
         self._refresh_label(self.img2_label, qimg)
+
+    # ----- 画面“无新帧”看门狗 -----
+
+    def _check_stale(self):
+        """周期检查两路画面：超过 STALE_FRAME_MS 无新帧则回到“无信号”占位"""
+        self._mark_stale(1, self._cam_had1, self._cam_last1,
+                         self.img1_label, "CAM1")
+        self._mark_stale(2, self._cam_had2, self._cam_last2,
+                         self.img2_label, "CAM2")
+
+    def _mark_stale(self, n, had, timer, label, name):
+        if not had or timer.elapsed() <= STALE_FRAME_MS:
+            return
+        if (n == 1 and self._img1 is None) or (n == 2 and self._img2 is None):
+            return  # 已处于占位态
+        if n == 1:
+            self._img1 = None
+        else:
+            self._img2 = None
+        label.setPixmap(QtGui.QPixmap())
+        label.setText("%s 无信号" % name)
 
     def _refresh_label(self, label, qimg):
         """把 QImage 缩放到标签尺寸后贴到 QLabel（保持长宽比）"""
