@@ -23,20 +23,16 @@ import time
 
 from PySide6 import QtCore, QtWidgets, QtGui
 
-# sh 脚本目录（绝对路径；目录不存在时下拉框显示占位）
-_UI_DIR = os.path.dirname(os.path.abspath(__file__))
-SH_DIR = os.path.join(os.path.dirname(_UI_DIR), "sh")
+from myos_config import CONFIG
+
+# sh 脚本目录（来自 config/config.yaml 的 launch.script_dir，已解析为绝对路径）
+SH_DIR = CONFIG.launch_script_dir()
+
+# 录制候选话题（来自 config/config.yaml 的 bag.record_topics，增删改 yaml 即可）
+BAG_TOPICS = CONFIG.bag_record_topics()
 
 # rosbag 默认保存目录
 DEFAULT_BAG_DIR = os.path.expanduser("~/bags")
-
-# 录制候选话题（代码常量，自由增删，勾选后录制）
-BAG_TOPICS = [
-    "/01/image_rect_color",
-    "/02/image_rect_color",
-    "/fusion/velocity",
-    "/control/steering_angle",
-]
 
 # 一键终止时按关键词匹配的进程（pkill -f，可自由增删）。
 # 覆盖 sh 脚本启动的 roslaunch/rosrun/roscore 等通用进程与节点可执行文件。
@@ -322,11 +318,12 @@ class LaunchPanel(QtWidgets.QWidget):
 
     @staticmethod
     def _scan_scripts():
-        """扫描 sh/ 目录下的 *.sh；目录不存在或为空时返回占位"""
-        try:
-            names = sorted(f for f in os.listdir(SH_DIR) if f.endswith(".sh"))
-        except OSError:
-            names = []
+        """从 config/config.yaml 的 launch.scripts 读取脚本文件名列表，
+        只保留真实存在于脚本目录的文件（yaml 里增删即自动同步）"""
+        names = []
+        for n in CONFIG.launch_scripts():
+            if os.path.isfile(os.path.join(SH_DIR, n)):
+                names.append(n)
         return names or ["（未找到脚本）"]
 
     def save_dir(self):

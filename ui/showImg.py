@@ -12,16 +12,13 @@
 
 from PySide6 import QtCore, QtWidgets, QtGui
 
+from myos_config import CONFIG
+
 # ---------------------------------------------------------------------------
-#  候选订阅话题：在这里自由添加 / 删减，选择器会自动同步
+#  候选订阅话题：来自 config/config.yaml 的 camera.candidate_topics，
+#  在 yaml 里增删即可，选择器自动同步
 # ---------------------------------------------------------------------------
-CAMERA_TOPICS = [
-    "/01/image_rect_color",
-    "/02/image_rect_color",
-    "/reprojection_image1",
-    "/reprojection_image2",
-    # 例如："/d435/color/image_raw"  —— 追加即可
-]
+CAMERA_TOPICS = CONFIG.camera_candidate_topics()
 
 COMBO_HEIGHT = 28   # 话题选择器高度
 COMBO_GAP = 8       # 选择器与画面之间的间距

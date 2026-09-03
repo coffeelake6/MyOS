@@ -22,13 +22,11 @@ from cv_bridge import CvBridge
 
 from PySide6 import QtCore, QtGui
 
+from myos_config import CONFIG
 from . import ensure_ros_node
 
-# 启动时默认订阅的话题（代码常量，随需修改）
-DEFAULT_INITIAL_TOPICS = {
-    "cam1": "/01/image_rect_color",
-    "cam2": "/02/image_rect_color",
-}
+# 启动时默认订阅的话题（可在 config/config.yaml 的 camera.initial_topics 修改）
+DEFAULT_INITIAL_TOPICS = CONFIG.camera_initial_topics()
 
 
 class ImageSubscriber(QtCore.QObject):

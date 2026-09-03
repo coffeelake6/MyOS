@@ -1,0 +1,63 @@
+# ============================================================
+# MyOS 集中配置 — 所有可调数据都在这里修改，代码自动适配
+#
+# 修改方法：直接增删 / 改动下面的条目，保存后重启程序生效。
+#   - 新增一个话题  → 往对应列表加一行
+#   - 删除一个数据项 → 删掉对应整块（- key: ... 到下一项为止）
+#   - 没写全的键会自动用代码内置默认值兜底，写错类型也不会崩溃
+# 注意：话题名以 / 开头，脚本文件名需真实存在于 script_dir 目录。
+# ============================================================
+
+# ---------- 相机画面 ----------
+# initial_topics:  程序启动时两路相机默认订阅的话题（cam1 / cam2 固定槽位，只改值）
+# candidate_topics: 画面下方下拉框里的可选话题（增删即自动同步）
+camera:
+  initial_topics:
+    cam1: /01/image_rect_color
+    cam2: /02/image_rect_color
+  candidate_topics:
+    - /01/image_rect_color
+    - /02/image_rect_color
+    - /reprojection_image1
+    - /reprojection_image2
+
+# ---------- 快捷启动 sh 脚本 ----------
+# script_dir: 脚本所在目录（相对本项目根目录，或写绝对路径）
+# scripts:    下拉框里列出的脚本文件名（增删脚本 = 修改这个列表）
+launch:
+  script_dir: sh
+  scripts:
+    - test_highway.sh
+    - test_line.sh
+    - test_skidpad.sh
+
+# ---------- bag 包录制 ----------
+# record_topics: 录制面板里可勾选的话题（增删即自动同步）
+bag:
+  record_topics:
+    - /01/image_rect_color
+    - /02/image_rect_color
+    - /fusion/velocity
+    - /control/steering_angle
+
+# ---------- 实时数据面板 ----------
+# key:      面板里显示的名称
+# topic:    订阅的 ROS 话题（消息类型固定 std_msgs/Float32，取值字段固定 data）
+# unit:     单位后缀（不需要就留空）
+# decimals: 保留小数位（默认 2，可不写）
+data_items:
+  - key: YOLO推理时间
+    topic: /yolov11_time
+    unit: ms
+  - key: Pointpillars推理时间
+    topic: /pointpillars_trt_time
+    unit: ms
+  - key: 融合速度
+    topic: /iou_fusion_time
+    unit: ms
+  - key: 运动补偿
+    topic: /motion_compensation_time
+    unit: ms
+  - key: 点云坐标转换
+    topic: /cluster_tf_time
+    unit: ms

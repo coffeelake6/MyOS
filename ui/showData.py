@@ -1,7 +1,7 @@
 # showData.py — MyOS 关键数据监控模块
 #
-# 竖向键值对列表展示关键话题数据；数据来自 ros_bridge.getData 的 DATA_ITEMS
-# 配置（键由用户定义，值由订阅的 ROS 话题解析）。增删数据项只需改 DATA_ITEMS，
+# 竖向键值对列表展示关键话题数据；数据来自 config/config.yaml 的 data_items
+# 配置（键由用户定义，值由订阅的 ROS 话题解析）。增删数据项只需改 yaml，
 # 面板行会自动同步（无 ROS 时显示占位 "—"，UI 仍可独立运行）。
 #
 # 设计（Apple Fluid Interface）：
@@ -10,10 +10,9 @@
 
 from PySide6 import QtCore, QtWidgets, QtGui
 
-PANEL_WIDTH = 230   # 面板固定宽度
+from myos_config import CONFIG
 
-# 无 ROS 环境下的兜底键列表（保证骨架行可见；有 ROS 时以 DATA_ITEMS 为准）
-_FALLBACK_KEYS = ["YOLO推理时间", "Pointpillars推理时间", "融合速度", "当前发布转角"]
+PANEL_WIDTH = 230   # 面板固定宽度
 
 
 class _DataRow(QtWidgets.QWidget):
@@ -108,15 +107,14 @@ class showData(QtWidgets.QWidget):
         scroll.setWidget(self._list)
         root.addWidget(scroll, stretch=1)
 
-        # ROS 数据桥（无 ROS 时静默跳过，仅保留骨架行显示占位 "—"）
-        keys = list(_FALLBACK_KEYS)
+        # 骨架行来自 config/config.yaml 的 data_items（增删数据项自动同步）；
+        # ROS 数据桥无 ROS 时静默跳过，仅保留骨架行显示占位 "—"
+        keys = [i["key"] for i in CONFIG.data_items()]
         try:
-            from ros_bridge.getData import setup_data_bridge, DATA_ITEMS
+            from ros_bridge.getData import setup_data_bridge
             self._bridge = setup_data_bridge(self, self._on_data)
             if self._bridge is not None:
                 keys = [i.key for i in self._bridge.items()]
-            else:
-                keys = [i.key for i in DATA_ITEMS]
         except Exception as e:
             print(f"[showData] 未启用 ROS 数据桥: {e}")
             self._bridge = None

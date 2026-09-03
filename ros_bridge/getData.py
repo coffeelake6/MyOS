@@ -2,17 +2,16 @@
 
 # getData.py — MyOS 关键话题数据桥
 #
-# 作用：按 DATA_ITEMS 列表订阅一组 ROS 话题，把解析出的值（键值对）
+# 作用：按配置的数据项列表订阅一组 ROS 话题，把解析出的值（键值对）
 #       通过 Qt 信号 data_updated(键, 格式化文本) 送到 UI 线程显示。
 #
-# 增删数据项：直接修改 DATA_ITEMS 列表即可（键由用户定义，值来自订阅话题解析）。
-# 每个数据项可配置：
+# 增删数据项：直接修改 config/config.yaml 的 data_items 列表即可
+# （键由用户定义，值来自订阅话题解析）。每个数据项可配置：
 #   key       显示键（用户自定义，如 "YOLO推理时间"）
 #   topic     ROS 话题名（按实际修改）
-#   msg_type  消息类型，如 "std_msgs/Float64"（支持 "包名/类型名" 格式）
-#   field     取值字段路径（点分），如 "data"、"twist.linear.x"
 #   unit      单位后缀，如 "ms"、"m/s"
 #   decimals  保留小数位
+# 消息类型固定 std_msgs/Float32，取值字段固定 data（按需可在下方调整）。
 #
 # 线程模型：与 getImg.py 一致 —— rospy 在后台守护线程 spin，
 #           回调里解析后经 Qt 信号跨线程（QueuedConnection）送到主线程。
@@ -26,6 +25,7 @@ from roslib.message import get_message_class
 
 from PySide6 import QtCore
 
+from myos_config import CONFIG
 from . import ensure_ros_node
 
 
@@ -41,18 +41,13 @@ class DataItem:
     decimals: int = 2       # 保留小数位
 
 
-# 监控的数据项列表（增删数据项改这里即可；话题 / 消息类型按实际修改）
+# 监控的数据项列表（来自 config/config.yaml 的 data_items；增删数据项改 yaml 即可。
+# 消息类型固定 std_msgs/Float32，取值字段固定 data）
 DATA_ITEMS = [
-    DataItem(key="YOLO推理时间", topic="/yolov11_time",
-             msg_type="std_msgs/Float32", field="data", unit="ms"),
-    DataItem(key="Pointpillars推理时间", topic="/pointpillars_trt_time",
-             msg_type="std_msgs/Float32", field="data", unit="ms"),
-    DataItem(key="融合速度", topic="/iou_fusion_time",
-             msg_type="std_msgs/Float32", field="data", unit="ms"),
-    DataItem(key="运动补偿", topic="/motion_compensation_time",
-             msg_type="std_msgs/Float32", field="data", unit="ms"),
-    DataItem(key="点云坐标转换", topic="/cluster_tf_time",
-             msg_type="std_msgs/Float32", field="data", unit="ms"),
+    DataItem(key=it["key"], topic=it["topic"],
+             msg_type="std_msgs/Float32", field="data",
+             unit=it["unit"], decimals=it["decimals"])
+    for it in CONFIG.data_items()
 ]
 
 
