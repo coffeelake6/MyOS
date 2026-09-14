@@ -1,0 +1,19 @@
+#欧式聚类的参数，用于直线和八字聚类
+
+
+highway:
+    sub_topic: "/velodyne_points_filtered"
+    #坐标系
+    frameID: "world"
+    #===点云过滤参数===
+    distance_threshold: 100 #雷达到点的欧氏距离
+    ztop: 1.0  # 最大高度
+    zbottom: -1  # 最小高度(这个参数有很大影响)
+    y_left: -30.0
+    y_right: 30.0
+
+
+line:
+    sub_topic: "/velodyne_points"
+    frameID: "world"
+    distance_threshold: 100 #直线点云识别的最远距离

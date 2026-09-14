@@ -1,0 +1,9 @@
+left:
+  sub_topic: "/sync/img1"
+  pub: "/yolov11/detection_image01"
+  imageVis: "left_img"
+
+right:
+  sub_topic: "/sync/img2"
+  pub: "/yolov11/detection_image02"
+  imageVis: "right_img"

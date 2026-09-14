@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=MyOS
+Name[zh_CN]=MyOS 操作面板
+Comment=A03 unmanned system operation panel
+Comment[zh_CN]=A03 无人系统一体化操作面板
+Exec=myos
+Icon=myos
+# 与窗口的 WM_CLASS（class 部分，由 app.setApplicationName("MyOS") 决定）对齐，
+# 桌面环境才能把运行中的窗口归到这个图标上（否则图标状态与窗口脱节）
+StartupWMClass=MyOS
+# 启动器是 shell 包装脚本（要先 source ROS 环境再 exec python），
+# 关闭启动反馈可避免个别桌面环境下图标卡在"正在启动"状态
+StartupNotify=false
+Terminal=false
+Categories=Utility;Science;

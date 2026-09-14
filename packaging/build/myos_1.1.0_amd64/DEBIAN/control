@@ -1,0 +1,17 @@
+Package: myos
+Version: 1.1.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: A03 Team <请改成你的邮箱@example.com>
+Depends: python3 (>= 3.8), python3-yaml, gnome-terminal, ros-noetic-ros-comm, ros-noetic-cv-bridge, ros-noetic-rosbag, ros-noetic-rviz
+Description: MyOS — 基于 PySide6 的无人系统操作面板
+ 集成相机画面、快捷脚本启动、bag 录制/播放、参数修改与实时数据监控
+ 的一体化桌面面板，通过 ROS 与车上程序交互。
+ .
+ 运行前提（本 deb 不打包这两项）：
+  - ROS Noetic：提供 rospy / cv_bridge / rosbag / rviz，已随上面 apt 依赖安装
+  - PySide6：GUI 库，需手动安装：sudo pip3 install PySide6==6.2.4
+ .
+ 安装后：应用菜单搜索 "MyOS" 打开，或在终端执行 myos
+Installed-Size: 2232

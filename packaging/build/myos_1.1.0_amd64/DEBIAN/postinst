@@ -1,0 +1,20 @@
+#!/bin/bash
+# postinst — 安装后处理：刷新应用菜单 + 检查 PySide6 是否就绪
+set -e
+
+# 刷新桌面数据库，让应用菜单立刻出现 MyOS（无该命令时忽略）
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications || true
+fi
+
+# PySide6 未随 deb 打包，缺失时给出明确安装提示（不阻断安装）
+if ! python3 -c "import PySide6" >/dev/null 2>&1; then
+    echo "=============================================================="
+    echo " MyOS 已安装，但系统缺少 GUI 库 PySide6（未随 deb 打包）。"
+    echo " 安装后即可启动："
+    echo "      sudo pip3 install PySide6==6.2.4      # 全局安装"
+    echo "   或 pip3 install --user PySide6==6.2.4    # 仅当前用户"
+    echo "=============================================================="
+fi
+
+exit 0

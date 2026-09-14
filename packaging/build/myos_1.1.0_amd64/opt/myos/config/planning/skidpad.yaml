@@ -1,0 +1,23 @@
+# ============================================================
+# path_generator_highway 参数配置 —— 路径生成部分
+# ============================================================
+
+# ------------------- 话题订阅 -------------------
+car_state_topic_name: /estimation/slam/state   # 车辆状态（位置/速度/航向）
+mid_point_topic_name: /spline_cloud             # 三次样条插值后的路径中点
+map_topic_name: /local_map                     # 局部锥桶地图
+
+# ------------------- 话题发布 -------------------
+path_generate_topic_name: /planning/ref_path   # 发给控制器的参考路径
+ref_path_topic_name: /visual/ref_path          # RVIZ 可视化路径
+
+# ------------------- 路径参数 -------------------
+total_laps: 4              # 总比赛圈数+1，过了第三圈后会刹停
+desire_vel: 3              # 期望速度 (m/s)，CalculateTraj 的默认降级值
+interval: 0.1              # 路径点间距 (m)
+
+# ------------------- 节点参数 -------------------
+N: 300                     # 每帧输出的参考路径点数
+dt: 0.05                  # 轨迹点时间间隔 (s)
+initial_velocity: 2        # 初始速度 (m/s)  最后发的路径点间隔是dt*initial_velocity
+node_rate: 100             # 节点运行频率 (Hz)
