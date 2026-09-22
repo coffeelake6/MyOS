@@ -91,6 +91,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.param_panel = ParamModificationPanel()
         page1_layout.addWidget(self.param_panel)
+        # 切换主配置后全局配置已重载：让各面板按新配置立即刷新
+        self.param_panel.config_applied.connect(self._on_config_applied)
         self.panel_stack.addWidget(page1)
 
         # 默认显示 splash 页
@@ -100,6 +102,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # 底部状态栏
         footer = FooterBar()
         root_layout.addWidget(footer)
+
+    def _on_config_applied(self):
+        """主配置切换后：按新配置刷新各面板可原地生效的部分
+
+        相机候选话题下拉、快捷启动脚本目录与列表、bag 录制候选话题立即生效；
+        相机默认订阅话题与实时数据项在 ROS 节点启动时建立，需重启程序。
+        """
+        self.show_img.refresh_config()
+        self.launch_panel.apply_config()
 
     def _on_splash_finished(self):
         """splash 定时器到期：流体过渡到图像显示页面
@@ -141,4 +152,5 @@ class MainWindow(QtWidgets.QMainWindow):
         fade.finished.connect(lambda: (
             self.show_img.setGraphicsEffect(None),
             self.show_img.play_entrance(),
+            self.header_bar.show_theme_switch(),
         ))

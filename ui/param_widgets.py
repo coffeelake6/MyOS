@@ -6,60 +6,70 @@
 #   - 所有动画基于当前呈现值，可被新动画平滑接管（可中断）
 #   - 临界阻尼缓动（OutCubic）默认无回弹，仅展开/收起沿同一路径
 #   - 状态切换零延迟
+#
+# 颜色统一取自 theme.T 的 token（见 ui/theme.py），这里不写死色值；
+# 自绘控件在 paintEvent 里实时取色，切换主题后自动跟着变。
 
 from PySide6 import QtCore, QtWidgets, QtGui
 
+from theme import T
+
 
 def _lerp_color(c1, c2, t):
-    """按 t(0~1) 在两种颜色间线性插值"""
+    """按 t(0~1) 在两种颜色间线性插值（含 alpha）
+
+    注意必须带上 alpha：起始色若是 QColor(0, 0, 0, 0)（透明），
+    丢掉 alpha 会变成"不透明黑"，静息态就会被涂成黑块。
+    """
     return QtGui.QColor(
         int(c1.red() + (c2.red() - c1.red()) * t),
         int(c1.green() + (c2.green() - c1.green()) * t),
         int(c1.blue() + (c2.blue() - c1.blue()) * t),
+        int(c1.alpha() + (c2.alpha() - c1.alpha()) * t),
     )
 
 
 # ---------------------------------------------------------------------------
-#  输入框样式（QSS）—— 深底 + 荧光绿焦点，步进按钮自绘箭头
+#  输入框样式（QSS）—— 白底 + 荧光绿焦点，步进按钮自绘箭头
 # ---------------------------------------------------------------------------
 
 INPUT_QSS = """
 QSpinBox, QDoubleSpinBox, QLineEdit {
-    background-color: #1b1f29;
-    border: 1px solid #262a35;
+    background-color: @input_bg;
+    border: 1px solid @input_border;
     border-radius: 6px;
     padding: 2px 6px;
-    color: #e6e6ea;
+    color: @fg;
     font-size: 12px;
-    selection-background-color: #00d4aa;
-    selection-color: #0c0d12;
+    selection-background-color: @accent;
+    selection-color: @on_accent;
 }
-QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover { border-color: #363c4d; }
-QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus { border-color: #00d4aa; }
+QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover { border-color: @accent; }
+QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus { border-color: @accent; }
 QSpinBox::up-button, QDoubleSpinBox::up-button {
     subcontrol-origin: border; subcontrol-position: top right;
-    width: 15px; border-left: 1px solid #262a35;
+    width: 15px; border-left: 1px solid @input_border;
     background: transparent; border-top-right-radius: 5px;
 }
 QSpinBox::down-button, QDoubleSpinBox::down-button {
     subcontrol-origin: border; subcontrol-position: bottom right;
-    width: 15px; border-left: 1px solid #262a35;
+    width: 15px; border-left: 1px solid @input_border;
     background: transparent; border-bottom-right-radius: 5px;
 }
 QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover { background: #242938; }
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover { background: @accent_soft; }
 QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
     width: 0; height: 0;
     border-left: 3px solid transparent; border-right: 3px solid transparent;
-    border-bottom: 4px solid #8e8e93;
+    border-bottom: 4px solid @fg_dim;
 }
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
     width: 0; height: 0;
     border-left: 3px solid transparent; border-right: 3px solid transparent;
-    border-top: 4px solid #8e8e93;
+    border-top: 4px solid @fg_dim;
 }
-QSpinBox::up-arrow:hover, QDoubleSpinBox::up-arrow:hover { border-bottom-color: #e6e6ea; }
-QSpinBox::down-arrow:hover, QDoubleSpinBox::down-arrow:hover { border-top-color: #e6e6ea; }
+QSpinBox::up-arrow:hover, QDoubleSpinBox::up-arrow:hover { border-bottom-color: @fg; }
+QSpinBox::down-arrow:hover, QDoubleSpinBox::down-arrow:hover { border-top-color: @fg; }
 """
 
 
@@ -166,7 +176,7 @@ class ToggleSwitch(QtWidgets.QAbstractButton):
         p.setRenderHint(QtGui.QPainter.Antialiasing)
         w, h = self.width(), self.height()
         # 轨道：灰 → 荧光绿插值
-        col = _lerp_color(QtGui.QColor("#2a2d38"), QtGui.QColor("#00d4aa"), self._t)
+        col = _lerp_color(T.qcolor("track"), T.qcolor("accent"), self._t)
         p.setPen(QtCore.Qt.NoPen)
         p.setBrush(col)
         p.drawRoundedRect(QtCore.QRectF(0.5, 0.5, w - 1, h - 1), h / 2, h / 2)
@@ -174,7 +184,7 @@ class ToggleSwitch(QtWidgets.QAbstractButton):
         pad = 2
         slide = h - 2 * pad + 3 * self._press
         x = pad + self._t * (w - 2 * pad - slide)
-        p.setBrush(QtGui.QColor("#ffffff"))
+        p.setBrush(T.qcolor("card_bg"))
         p.drawEllipse(QtCore.QPointF(x + slide / 2, h / 2), slide / 2, slide / 2)
         p.end()
 
@@ -213,8 +223,8 @@ class ParamRow(QtWidgets.QWidget):
         # 名称（过长省略）
         self.name_label = QtWidgets.QLabel(pv.display_name)
         self.name_label.setFixedWidth(self.NAME_W)
-        self.name_label.setStyleSheet(
-            "color: #8e8e93; font-size: 12px; background: transparent;")
+        T.styled(self.name_label,
+                 "color: @fg_dim; font-size: 12px; background: transparent;")
         lay.addWidget(self.name_label)
 
         lay.addStretch(1)
@@ -226,8 +236,8 @@ class ParamRow(QtWidgets.QWidget):
         # 未保存圆点
         self.dot = QtWidgets.QLabel()
         self.dot.setFixedSize(8, 8)
-        self.dot.setStyleSheet(
-            "background-color: #00d4aa; border-radius: 4px; background-clip: content;")
+        T.styled(self.dot,
+                 "background-color: @accent; border-radius: 4px; background-clip: content;")
         self.dot.setVisible(False)
         lay.addWidget(self.dot)
 
@@ -331,7 +341,7 @@ class ParamRow(QtWidgets.QWidget):
         p = QtGui.QPainter(self)
         p.setRenderHint(QtGui.QPainter.Antialiasing)
         # 悬停微亮（很轻微，不抢内容）
-        bg = _lerp_color(QtGui.QColor(0, 0, 0, 0), QtGui.QColor("#181b24"), self._hover)
+        bg = _lerp_color(QtGui.QColor(0, 0, 0, 0), T.qcolor("hover"), self._hover)
         p.setPen(QtCore.Qt.NoPen)
         p.setBrush(bg)
         p.drawRoundedRect(QtCore.QRectF(0.5, 1.0, self.width() - 1, self.height() - 2), 7, 7)
@@ -416,7 +426,7 @@ class _CardTitle(QtWidgets.QWidget):
         p.setRenderHint(QtGui.QPainter.Antialiasing)
         w, h = self.width(), self.height()
         # 悬停背景
-        bg = _lerp_color(QtGui.QColor(0, 0, 0, 0), QtGui.QColor("#171a23"), self._hover)
+        bg = _lerp_color(QtGui.QColor(0, 0, 0, 0), T.qcolor("hover"), self._hover)
         p.setPen(QtCore.Qt.NoPen)
         p.setBrush(bg)
         p.drawRoundedRect(QtCore.QRectF(0.5, 0.5, w - 1, h - 1), 7, 7)
@@ -427,7 +437,7 @@ class _CardTitle(QtWidgets.QWidget):
         tri = QtGui.QPolygonF([QtCore.QPointF(0, -3.5), QtCore.QPointF(0, 3.5),
                                QtCore.QPointF(4.5, 0)])
         p.setPen(QtCore.Qt.NoPen)
-        p.setBrush(QtGui.QColor("#8e8e93"))
+        p.setBrush(T.qcolor("fg_dim"))
         p.drawPolygon(tri)
         p.restore()
         # 组名（第一行）
@@ -435,13 +445,13 @@ class _CardTitle(QtWidgets.QWidget):
         f.setPixelSize(13)
         f.setWeight(QtGui.QFont.DemiBold)
         p.setFont(f)
-        p.setPen(QtGui.QColor("#e5e5ea"))
+        p.setPen(T.qcolor("fg"))
         p.drawText(QtCore.QRect(30, 2, w - 150, 18), QtCore.Qt.AlignVCenter, self._name)
         # 文件名（第二行）
         f2 = self.font()
         f2.setPixelSize(10)
         p.setFont(f2)
-        p.setPen(QtGui.QColor("#565a64"))
+        p.setPen(T.qcolor("fg_faint"))
         p.drawText(QtCore.QRect(30, 20, w - 150, 15), QtCore.Qt.AlignVCenter, self._filename)
         # 未保存计数胶囊
         if self._count > 0:
@@ -452,12 +462,12 @@ class _CardTitle(QtWidgets.QWidget):
             cx = w - cw - 12
             cy = (h - 18) / 2
             p.setPen(QtCore.Qt.NoPen)
-            p.setBrush(QtGui.QColor(0, 212, 170, 26))
+            p.setBrush(T.qcolor("accent", 26))
             p.drawRoundedRect(QtCore.QRectF(cx, cy, cw, 18), 9, 9)
             f3 = self.font()
             f3.setPixelSize(10)
             p.setFont(f3)
-            p.setPen(QtGui.QColor("#00d4aa"))
+            p.setPen(T.qcolor("accent"))
             p.drawText(QtCore.QRect(int(cx), int(cy), int(cw), 18),
                        QtCore.Qt.AlignCenter, text)
         p.end()
@@ -510,9 +520,9 @@ class GroupCard(QtWidgets.QWidget):
             if pv.group_name != prev_group and pv.group_name:
                 g = QtWidgets.QLabel(pv.group_name)
                 g.setContentsMargins(2, 6, 0, 0)
-                g.setStyleSheet(
-                    "color: #565a64; font-size: 11px; font-weight: 600;"
-                    "background: transparent;")
+                T.styled(g,
+                         "color: @fg_faint; font-size: 11px; font-weight: 600;"
+                         "background: transparent;")
                 self._body_layout.addWidget(g)
                 prev_group = pv.group_name
             row = ParamRow(pv)
@@ -573,8 +583,8 @@ class GroupCard(QtWidgets.QWidget):
     def paintEvent(self, e):
         p = QtGui.QPainter(self)
         p.setRenderHint(QtGui.QPainter.Antialiasing)
-        p.setPen(QtGui.QPen(QtGui.QColor("#1f232d"), 1))
-        p.setBrush(QtGui.QColor("#12141a"))
+        p.setPen(QtGui.QPen(T.qcolor("card_border"), 1))
+        p.setBrush(T.qcolor("card_bg"))
         p.drawRoundedRect(QtCore.QRectF(0.5, 0.5,
                                         self.width() - 1, self.height() - 1), 12, 12)
         p.end()
@@ -691,13 +701,13 @@ class SaveButton(QtWidgets.QPushButton):
         w, h = self.width(), self.height()
         enabled = self.isEnabled()
         # 底色：荧光绿 → hover 提亮 → press 加深；失败时橙色
-        base = QtGui.QColor("#00d4aa")
+        base = T.qcolor("accent")
         if self._tint >= 1.5:
-            base = QtGui.QColor("#ff6b35")
+            base = T.qcolor("warn")
         elif self._tint >= 0.5:
-            base = QtGui.QColor("#2ee0bd")
+            base = T.qcolor("accent_light")
         if not enabled:
-            base = QtGui.QColor("#22303c")
+            base = T.qcolor("muted_fill")
         bg = _lerp_color(base, base.lighter(112), self._hover)
         bg = _lerp_color(bg, bg.darker(112), self._press)
         p.setPen(QtCore.Qt.NoPen)
@@ -710,7 +720,7 @@ class SaveButton(QtWidgets.QPushButton):
         f.setPixelSize(12)
         f.setWeight(QtGui.QFont.DemiBold)
         p.setFont(f)
-        col = QtGui.QColor("#0c0d12") if enabled else QtGui.QColor("#5b6a75")
+        col = T.qcolor("on_accent") if enabled else T.qcolor("on_muted")
         p.setPen(col)
         p.drawText(QtCore.QRect(0, 0, w, h), QtCore.Qt.AlignCenter, self.text())
         p.end()
@@ -739,11 +749,11 @@ class NotifyBar(QtWidgets.QWidget):
         lay.setSpacing(8)
 
         icon = QtWidgets.QLabel("⚠")
-        icon.setStyleSheet("color: #ff6b35; font-size: 13px; background: transparent;")
+        T.styled(icon, "color: @warn_text; font-size: 13px; background: transparent;")
         lay.addWidget(icon)
 
         self.label = QtWidgets.QLabel()
-        self.label.setStyleSheet("color: #ffb28a; font-size: 11px; background: transparent;")
+        T.styled(self.label, "color: @notify_fg; font-size: 11px; background: transparent;")
         lay.addWidget(self.label, stretch=1)
 
         self.reload_btn = self._make_btn("重新加载", lambda: self.reload_requested.emit())
@@ -756,11 +766,12 @@ class NotifyBar(QtWidgets.QWidget):
         b = QtWidgets.QPushButton(text)
         b.setCursor(QtCore.Qt.PointingHandCursor)
         b.setFixedHeight(22)
-        b.setStyleSheet(
-            "QPushButton { background: #2a1d14; color: #ffb28a; border: 1px solid #4a2e1c;"
+        T.styled(
+            b,
+            "QPushButton { background: @notify_bg; color: @notify_fg; border: 1px solid @notify_border;"
             " border-radius: 6px; font-size: 11px; padding: 0 10px; }"
-            "QPushButton:hover { background: #35251a; border-color: #ff6b35; }"
-            "QPushButton:pressed { background: #1f150e; }")
+            "QPushButton:hover { background: @notify_hover; border-color: @warn_text; }"
+            "QPushButton:pressed { background: @notify_press; }")
         b.clicked.connect(slot)
         return b
 

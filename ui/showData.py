@@ -7,8 +7,12 @@
 # 设计（Apple Fluid Interface）：
 #   - 值更新时强调色短暂闪烁（400ms）后恢复，反馈即时且不打扰
 #   - 面板外观与参数修改面板一致：圆角卡片 + 描边
+#
+# 颜色统一取自 theme.T 的 token（见 ui/theme.py），本文件不写死色值。
 
 from PySide6 import QtCore, QtWidgets, QtGui
+
+from theme import T
 
 from myos_config import CONFIG
 
@@ -27,7 +31,7 @@ class _DataRow(QtWidgets.QWidget):
         lay.setSpacing(8)
 
         self.key_label = QtWidgets.QLabel(key)
-        self.key_label.setStyleSheet("color: #8e8e93; font-size: 12px;")
+        T.styled(self.key_label, "color: @fg_dim; font-size: 12px;")
         self.key_label.setMaximumWidth(130)
         lay.addWidget(self.key_label)
 
@@ -35,7 +39,7 @@ class _DataRow(QtWidgets.QWidget):
 
         self.value_label = QtWidgets.QLabel("—")
         self.value_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self.value_label.setStyleSheet(self._style("#e5e5ea"))
+        T.styled(self.value_label, self._style("@fg"))
         lay.addWidget(self.value_label)
 
         self._last = None
@@ -45,6 +49,7 @@ class _DataRow(QtWidgets.QWidget):
 
     @staticmethod
     def _style(color):
+        """拼 QSS 模板；color 可传 @token（配合 T.styled 自动换肤）"""
         return f"color: {color}; font-size: 12px; font-weight: 600;"
 
     def resizeEvent(self, e):
@@ -66,11 +71,11 @@ class _DataRow(QtWidgets.QWidget):
         if text != self._last:
             self._last = text
             self.value_label.setText(text)
-        self.value_label.setStyleSheet(self._style("#00d4aa"))
+        T.styled(self.value_label, self._style("@accent"))
         self._flash_timer.start(400)
 
     def _restore_color(self):
-        self.value_label.setStyleSheet(self._style("#e5e5ea"))
+        T.styled(self.value_label, self._style("@fg"))
 
 
 class showData(QtWidgets.QWidget):
@@ -88,8 +93,8 @@ class showData(QtWidgets.QWidget):
 
         # 标题
         title = QtWidgets.QLabel("实时数据")
-        title.setStyleSheet("color: #e5e5ea; font-size: 15px; font-weight: 600; "
-                            "letter-spacing: 0.01em;")
+        T.styled(title, "color: @fg; font-size: 15px; font-weight: 600; "
+                        "letter-spacing: 0.01em;")
         root.addWidget(title)
 
         # 数据行列表（滚动）
@@ -102,8 +107,8 @@ class showData(QtWidgets.QWidget):
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
-        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
-        scroll.viewport().setStyleSheet("background: transparent;")
+        T.styled(scroll, "QScrollArea { background: transparent; border: none; }")
+        T.styled(scroll.viewport(), "background: transparent;")
         scroll.setWidget(self._list)
         root.addWidget(scroll, stretch=1)
 
@@ -141,8 +146,8 @@ class showData(QtWidgets.QWidget):
         """绘制面板圆角底 + 描边"""
         p = QtGui.QPainter(self)
         p.setRenderHint(QtGui.QPainter.Antialiasing)
-        p.setPen(QtGui.QPen(QtGui.QColor("#1f232d"), 1))
-        p.setBrush(QtGui.QColor("#12141a"))
+        p.setPen(QtGui.QPen(T.qcolor("card_border"), 1))
+        p.setBrush(T.qcolor("card_bg"))
         p.drawRoundedRect(QtCore.QRectF(0.5, 0.5,
                                         self.width() - 1, self.height() - 1), 12, 12)
         p.end()

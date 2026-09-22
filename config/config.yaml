@@ -20,6 +20,9 @@ camera:
     - /02/image_rect_color
     - /reprojection_image1
     - /reprojection_image2
+    - /sync/img1
+    - /sync/img2
+    
 
 # ---------- 快捷启动 sh 脚本 ----------
 # script_dir: 脚本所在目录（相对本项目根目录，或写绝对路径）
@@ -57,7 +60,7 @@ data_items:
     topic: /yolov11_time
     unit: ms
   - key: Pointpillars推理时间
-    topic: /pointpillars_trt_time
+    topic: /pointpillars_time
     unit: ms
   - key: 融合速度
     topic: /iou_fusion_time
@@ -68,3 +71,34 @@ data_items:
   - key: 点云坐标转换
     topic: /cluster_tf_time
     unit: ms
+  - key: 三角剖分时间
+    topic: /triangulation_time
+    unit: ms
+  - key: 路径生成
+    topic: /path_generation_time
+    unit: ms
+  - key: 控制响应
+    topic: /control_time
+    unit: ms
+
+# ---------- 参数修改面板：各模块 yaml 目录 ----------
+# 参数修改面板按模块扫描目录下的全部 *.yaml，每个文件生成一张可编辑参数卡片，
+# 目录里增删 yaml 会自动同步；路径不存在时该模块显示空态（不影响其他模块）。
+# 可写绝对路径，也可写相对本项目根目录的相对路径；留空则用程序内置默认路径。
+param_dirs:
+  perception: /home/coffeelake/MyOS/MyOS/config/perception/   # 感知模块
+  mapping: /home/coffeelake/MyOS/MyOS/config/slam/       # 建图模块
+  planning: /home/coffeelake/MyOS/MyOS/config/planning/       # 规划模块
+
+# ---------- 参数修改面板：主配置 ----------
+# 主配置是整个程序的配置来源：它的 camera / launch / bag / data_items / param_dirs
+# 段以它为准，没写到的段沿用本文件。留空 = 全部用本文件。
+# 一般不用手改：在参数修改面板上点「浏览」选一个 config.yaml 会自动写回这里。
+param_panel:
+  main_config: /home/coffeelake/A03/myos.yaml
+
+# ---------- 界面主题 ----------
+# light = 灰底黑字（默认）   dark = 原来的黑底白字
+# 也可以在界面顶部的胶囊按钮上直接切换，会自动写回这里，下次启动生效。
+ui:
+  theme: dark

@@ -9,17 +9,19 @@
 #   - 菜单从触发源下方浮现，收起沿同一路径（空间一致性）
 #   - 展开临界阻尼无回弹；箭头旋转带轻微回弹（阻尼 ~0.8）
 #   - 弹层从触发源“展开”逐项显露（级联效果），悬停/按压背景平滑过渡
+#
+# 颜色统一取自 theme.T 的 token（见 ui/theme.py），本文件不写死色值。
 
 from PySide6 import QtCore, QtWidgets, QtGui
+
+from theme import T
 
 from myos_config import CONFIG
 
 # ---------------------------------------------------------------------------
-#  候选订阅话题：来自 config/config.yaml 的 camera.candidate_topics，
-#  在 yaml 里增删即可，选择器自动同步
+#  候选订阅话题：来自 config/config.yaml（或主配置）的 camera.candidate_topics，
+#  在 yaml 里增删即可，选择器自动同步；切换主配置后由 refresh_config() 立即刷新
 # ---------------------------------------------------------------------------
-CAMERA_TOPICS = CONFIG.camera_candidate_topics()
-
 COMBO_HEIGHT = 28   # 话题选择器高度
 COMBO_GAP = 8       # 选择器与画面之间的间距
 
@@ -39,11 +41,16 @@ _MARGIN = 16        # 弹层留白（软阴影 + 呼吸空间）
 
 
 def _lerp_color(c1, c2, t):
-    """按 t(0~1) 在两种颜色间线性插值"""
+    """按 t(0~1) 在两种颜色间线性插值（含 alpha）
+
+    注意必须带上 alpha：起始色若是 QColor(0, 0, 0, 0)（透明），
+    丢掉 alpha 会变成"不透明黑"，静息态就会被涂成黑块。
+    """
     return QtGui.QColor(
         int(c1.red() + (c2.red() - c1.red()) * t),
         int(c1.green() + (c2.green() - c1.green()) * t),
         int(c1.blue() + (c2.blue() - c1.blue()) * t),
+        int(c1.alpha() + (c2.alpha() - c1.alpha()) * t),
     )
 
 
@@ -134,9 +141,9 @@ class _TopicItem(QtWidgets.QPushButton):
         p = QtGui.QPainter(self)
         p.setRenderHint(QtGui.QPainter.Antialiasing)
         # 背景：透明 → 悬停 → 键盘高亮 → 按压加深
-        bg = _lerp_color(QtGui.QColor(0, 0, 0, 0), QtGui.QColor("#232837"), self._hover)
-        bg = _lerp_color(bg, QtGui.QColor("#2b3140"), self._active)
-        bg = _lerp_color(bg, QtGui.QColor("#1a1d26"), self._press)
+        bg = _lerp_color(QtGui.QColor(0, 0, 0, 0), T.qcolor("hover_accent"), self._hover)
+        bg = _lerp_color(bg, T.qcolor("active_soft2"), self._active)
+        bg = _lerp_color(bg, T.qcolor("press_alt"), self._press)
         p.setPen(QtCore.Qt.NoPen)
         p.setBrush(bg)
         p.drawRoundedRect(self.rect(), 6, 6)
@@ -144,14 +151,14 @@ class _TopicItem(QtWidgets.QPushButton):
         f = self.font()
         f.setPixelSize(12)
         p.setFont(f)
-        p.setPen(QtGui.QColor("#5ee8c8") if self._selected else QtGui.QColor("#e5e5ea"))
+        p.setPen(T.qcolor("accent_hi") if self._selected else T.qcolor("fg"))
         elided = p.fontMetrics().elidedText(self.text(), QtCore.Qt.ElideRight,
                                             self.width() - 34)
         p.drawText(QtCore.QRect(12, 0, self.width() - 34, self.height()),
                    QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, elided)
         # 选中标记
         if self._selected:
-            p.setPen(QtGui.QColor("#00d4aa"))
+            p.setPen(T.qcolor("accent"))
             f2 = self.font()
             f2.setPixelSize(11)
             p.setFont(f2)
@@ -370,8 +377,8 @@ class TopicPopup(QtWidgets.QWidget):
             p.setBrush(QtGui.QColor(0, 0, 0, alpha))
             p.drawRoundedRect(rect.translated(0, 3 + i * 2), 10, 10)
         # 面板本体
-        p.setBrush(QtGui.QColor("#16181f"))
-        p.setPen(QtGui.QPen(QtGui.QColor("#2b2f3a"), 1))
+        p.setBrush(T.qcolor("card_bg"))
+        p.setPen(QtGui.QPen(T.qcolor("card_border"), 1))
         p.drawRoundedRect(rect, 10, 10)
         p.end()
 
@@ -547,16 +554,16 @@ class TopicSelector(QtWidgets.QPushButton):
         p.setRenderHint(QtGui.QPainter.Antialiasing)
         r = self.rect()
         # 背景：悬停提亮、按压加深
-        bg = _lerp_color(QtGui.QColor("#14161d"), QtGui.QColor("#1c1f28"), self._hover)
-        bg = _lerp_color(bg, QtGui.QColor("#0f1116"), self._press)
-        p.setPen(QtGui.QPen(QtGui.QColor("#2a2b36"), 1))
+        bg = _lerp_color(T.qcolor("surface"), T.qcolor("hover_accent"), self._hover)
+        bg = _lerp_color(bg, T.qcolor("press_alt"), self._press)
+        p.setPen(QtGui.QPen(T.qcolor("input_border"), 1))
         p.setBrush(bg)
         p.drawRoundedRect(QtCore.QRectF(0.5, 0.5, r.width() - 1, r.height() - 1), 6, 6)
         # 当前话题（过长省略号）
         f = p.font()
         f.setPixelSize(12)
         p.setFont(f)
-        p.setPen(QtGui.QColor("#e5e5ea"))
+        p.setPen(T.qcolor("fg"))
         text_r = QtCore.QRect(10, 0, r.width() - 34, r.height())
         elided = p.fontMetrics().elidedText(self._current, QtCore.Qt.ElideRight,
                                             text_r.width())
@@ -568,7 +575,7 @@ class TopicSelector(QtWidgets.QPushButton):
         tri = QtGui.QPolygonF([QtCore.QPointF(0, -2.5), QtCore.QPointF(4, 3.5),
                                QtCore.QPointF(-4, 3.5)])
         p.setPen(QtCore.Qt.NoPen)
-        p.setBrush(QtGui.QColor("#8e8e93"))
+        p.setBrush(T.qcolor("fg_dim"))
         p.drawPolygon(tri)
         p.restore()
         p.end()
@@ -591,7 +598,7 @@ class _ImageCard(QtWidgets.QWidget):
         # 标题栏
         header = QtWidgets.QHBoxLayout()
         title_label = QtWidgets.QLabel("相机画面")
-        title_label.setStyleSheet("color: #e5e5ea; font-size: 13px; font-weight: 600;")
+        T.styled(title_label, "color: @fg; font-size: 13px; font-weight: 600;")
         header.addWidget(title_label)
         header.addStretch(1)
         root.addLayout(header)
@@ -608,22 +615,34 @@ class _ImageCard(QtWidgets.QWidget):
         # 两个话题选择器（并排）
         selectors = QtWidgets.QHBoxLayout()
         selectors.setSpacing(12)
-        self.topic_selector1 = TopicSelector(CAMERA_TOPICS, self)
-        self.topic_selector2 = TopicSelector(CAMERA_TOPICS, self)
+        topics = CONFIG.camera_candidate_topics()
+        self.topic_selector1 = TopicSelector(topics, self)
+        self.topic_selector2 = TopicSelector(topics, self)
         selectors.addWidget(self.topic_selector1, stretch=1)
         selectors.addWidget(self.topic_selector2, stretch=1)
         root.addLayout(selectors)
 
+    def apply_topics(self, topics):
+        """按新的候选话题刷新两个选择器
+
+        当前已选话题若不在新列表里，保留并插到首位（实际订阅关系没变，
+        下拉框要如实显示当前值）。
+        """
+        for sel in (self.topic_selector1, self.topic_selector2):
+            cur = sel.current_text()
+            sel.set_topics(topics)
+            if cur:
+                sel.set_current(cur)
+
     @staticmethod
     def _make_view_label(text):
-        """画面标签：纯深底（无边框/圆角，便于两路无缝衔接）"""
+        """画面标签：纯浅底（无边框/圆角，便于两路无缝衔接）"""
         label = QtWidgets.QLabel(text)
         label.setAlignment(QtCore.Qt.AlignCenter)
-        label.setStyleSheet(
-            "background-color: #0a0b10;"
-            "color: #6c6c70;"
-            "font: 13px 'SF Pro Text', 'Segoe UI', sans-serif;"
-        )
+        T.styled(label,
+                 "background-color: @chip_bg;"
+                 "color: @fg_dim;"
+                 "font: 13px 'SF Pro Text', 'Segoe UI', sans-serif;")
         label.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                             QtWidgets.QSizePolicy.Expanding)
         label.setMinimumSize(2, 2)
@@ -633,8 +652,8 @@ class _ImageCard(QtWidgets.QWidget):
         """绘制卡片圆角底 + 描边"""
         p = QtGui.QPainter(self)
         p.setRenderHint(QtGui.QPainter.Antialiasing)
-        p.setPen(QtGui.QPen(QtGui.QColor("#1f232d"), 1))
-        p.setBrush(QtGui.QColor("#12141a"))
+        p.setPen(QtGui.QPen(T.qcolor("card_border"), 1))
+        p.setBrush(T.qcolor("card_bg"))
         p.drawRoundedRect(QtCore.QRectF(0.5, 0.5,
                                         self.width() - 1, self.height() - 1), 12, 12)
         p.end()
@@ -723,6 +742,14 @@ class showImg(QtWidgets.QWidget):
         QtCore.QTimer.singleShot(0, self._refresh_pixmaps)
 
     # ----- 话题切换 -----
+
+    def refresh_config(self):
+        """主配置切换后刷新：候选话题下拉立即生效
+
+        camera.initial_topics（启动时的默认订阅）已在 ROS 桥里建立，运行中
+        不重建订阅，需重启程序后生效。
+        """
+        self.card.apply_topics(CONFIG.camera_candidate_topics())
 
     def _on_cam1_topic_changed(self, topic):
         self._switch_topic("cam1", topic, self.img1_label)

@@ -18,29 +18,21 @@ import yaml
 from PySide6 import QtCore
 
 # ============================================================
-#  感知模块导入的 yaml 文件夹（固定绝对路径）
-#  部署/更换机器时，修改这一行为目标机器的实际路径即可；
-#  也可用环境变量 MYOS_PARAMS_DIR 覆盖（优先级更高，无需改代码）。
-#
-#  后续接入其他模块（建图/规划/控制/驱动）时，仿照此结构新增
-#  MAPPING_CONFIG_DIR / PLANNING_CONFIG_DIR ... 各模块独立命名，
-#  由各模块的 ModuleInterface 实现传入自己的 ParamStore。
+#  各模块导入的 yaml 文件夹路径统一配置在 config/config.yaml 的
+#  param_dirs 段（感知 perception / 建图 mapping / 规划 planning），
+#  由 ui 层读取后传入 ParamStore，部署换机器时只改配置文件。
 # ============================================================
 _APP_ROOT = os.path.realpath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-PERCEPTION_CONFIG_DIR = os.environ.get("MYOS_PARAMS_DIR") or (
-    "/home/a03/A03/perception/src/param/config"
-)
 
 
 def resolve_config_dir(config_dir):
     """把传入的目录统一解析为绝对路径
 
-    None → None（由各模块自行传入默认目录常量，如 PERCEPTION_CONFIG_DIR）；
-    绝对路径 → realpath 规范化；
-    相对路径 → 先按当前工作目录解析（找不到再回退到项目根解析），最终为绝对路径。
+    相对路径 → 先按当前工作目录解析（找不到再回退到项目根解析），最终为绝对路径；
+    空值 → 空串（调用方按「未配置」处理，该模块显示空态）。
     """
-    if config_dir is None:
-        return None
+    if not config_dir:
+        return ""
     if os.path.isabs(config_dir):
         return os.path.realpath(config_dir)
     # 相对路径：先按 cwd 解析，找不到再按项目根解析
@@ -49,6 +41,7 @@ def resolve_config_dir(config_dir):
         if os.path.isdir(candidate):
             return candidate
     return os.path.realpath(os.path.join(os.getcwd(), config_dir))
+
 
 # ---- 感知模块专属：文件名 → 中文显示名（可选映射） ----
 # 目录下新增的 yaml 自动出现在 UI 中，删减也自动消失，数量不固定
@@ -68,14 +61,6 @@ def perception_display_name_for(filename):
     return PERCEPTION_FILE_DISPLAY_NAMES.get(
         filename, filename[:-5] if filename.endswith(".yaml") else filename)
 
-
-# ============================================================
-#  建图模块导入的 yaml 文件夹（固定绝对路径）
-#  部署/更换机器时修改此路径，或设环境变量 MYOS_SLAM_DIR 覆盖。
-# ============================================================
-MAPPING_CONFIG_DIR = os.environ.get("MYOS_SLAM_DIR") or (
-    "/home/a03/A03/MYSLAM/src/FAST_LIO/config"
-)
 
 # ---- 建图模块专属：文件名 → 中文显示名 ----
 MAPPING_FILE_DISPLAY_NAMES = {
@@ -152,14 +137,6 @@ MAPPING_GROUP_NAMES = {
     "common": "通用", "preprocess": "预处理",
     "mapping": "建图", "publish": "发布", "pcd_save": "点云保存",
 }
-
-# ============================================================
-#  规划模块导入的 yaml 文件夹（固定绝对路径）
-#  部署/更换机器时修改此路径，或设环境变量 MYOS_PLANNING_DIR 覆盖。
-# ============================================================
-PLANNING_CONFIG_DIR = os.environ.get("MYOS_PLANNING_DIR") or (
-    "/home/a03/A03/Planning/src/Param/config"
-)
 
 # ---- 规划模块专属：文件名 → 中文显示名 ----
 PLANNING_FILE_DISPLAY_NAMES = {
@@ -550,10 +527,13 @@ class ParamStore(QtCore.QObject):
     """管理一个模块的 yaml 参数目录（通用数据层，每个模块各自创建实例）
 
     各模块通过构造参数注入自己的目录与映射表，互不混淆：
-      ParamStore(config_dir=PERCEPTION_CONFIG_DIR,
+      ParamStore(config_dir=CONFIG.param_dir("perception"),
                  display_name_fn=perception_display_name_for,
                  key_names=PERCEPTION_KEY_NAMES,
                  group_names=PERCEPTION_GROUP_NAMES)
+
+    config_dir 来自 config/config.yaml 的 param_dirs 段；留空或目录不存在
+    时该 store 无文件（模块显示空态），不影响其他模块。
 
     信号：
       file_changed(文件名)  — 文件内容被外部修改且已自动重新加载（无本地冲突）
@@ -569,11 +549,9 @@ class ParamStore(QtCore.QObject):
     def __init__(self, config_dir, display_name_fn=None,
                  key_names=None, group_names=None, parent=None):
         super().__init__(parent)
-        # config_dir 必填：由各模块传入自己的目录常量（如 PERCEPTION_CONFIG_DIR）
+        # config_dir 由各模块传入（值来自 config.yaml 的 param_dirs）；
+        # 留空 → 空 store，该模块显示空态
         self._config_dir = resolve_config_dir(config_dir)
-        if not self._config_dir:
-            raise ValueError("ParamStore 需要指定 config_dir"
-                             "（各模块传入自己的目录常量，如 PERCEPTION_CONFIG_DIR）")
         self._display_name_fn = display_name_fn or _plain_display_name
         self._key_names = key_names or {}
         self._group_names = group_names or {}
@@ -602,6 +580,39 @@ class ParamStore(QtCore.QObject):
         # 监听目录本身：新增/删除/重命名 yaml 时触发重新扫描
         if os.path.isdir(self._config_dir):
             self._watcher.addPath(self._config_dir)
+
+    def set_config_dir(self, config_dir):
+        """运行时切换参数目录（本模块 yaml 所在文件夹）
+
+        参数面板选定「主配置 yaml」后调用：卸载旧目录的文件与监听，改为扫描
+        新目录。目录相同则不做任何事。原目录里未保存的修改会被丢弃。
+        文件集合变化会触发 files_scanned，UI 按新文件列表重建卡片。
+        """
+        new_dir = resolve_config_dir(config_dir)
+        if new_dir == self._config_dir:
+            return False
+        if self.any_dirty():
+            print(f"[param_store] 切换参数目录到 {new_dir or '（未配置）'}，"
+                  f"{self._config_dir} 里未保存的修改被丢弃")
+        # 卸载旧目录：文件与目录的监听都要摘掉，避免继续收到旧路径事件
+        for path in list(self._by_path):
+            self._watcher.removePath(path)
+        if self._config_dir and os.path.isdir(self._config_dir):
+            self._watcher.removePath(self._config_dir)
+        self._pending.clear()
+        # 清空文件列表，让 scan() 把新目录里的 yaml 当作新文件重新加载
+        self._files.clear()
+        self._by_name.clear()
+        self._by_path.clear()
+        self._config_dir = new_dir
+        self._loaded = True
+        # scan 在文件集合有增减时会自己发 files_scanned；这里兜底一次，
+        # 保证「新目录为空」时 UI 也能把旧目录留下的卡片清掉（只发一次）
+        if not self.scan():
+            self.files_scanned.emit()
+        if os.path.isdir(self._config_dir):
+            self._watcher.addPath(self._config_dir)
+        return True
 
     def scan(self):
         """扫描配置目录下的所有 *.yaml，与当前文件集合做差异同步

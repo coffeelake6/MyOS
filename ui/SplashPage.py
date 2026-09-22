@@ -2,17 +2,21 @@
 #
 # 嵌入主窗口内部显示：学校/车队 logo + 大标题 + 副标题 + loading 呼吸文字 + 柔光晕。
 # 动画基于经过时间（elapsed-time），保证任意刷新率下都平滑。
+#
+# 颜色统一取自 theme.T 的 token（见 ui/theme.py），本文件不写死色值。
 
 import math
 import os
 from PySide6 import QtCore, QtWidgets, QtGui
 
+from theme import T
+
 # 动画时钟间隔（毫秒），约 60fps —— 与显示器刷新率对齐
 ANIM_TICK_MS = 16
 
 # logo 资源路径（style/icon 下的学校与车队 logo）
+# 学校 logo 有深/浅两套，按当前主题取（见 theme.school_logo()）
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCHOOL_LOGO_PATH = os.path.join(_ROOT, "style", "icon", "SZPU.png")
 TEAM_LOGO_PATH = os.path.join(_ROOT, "style", "icon", "魅影方程式.png")
 
 
@@ -22,7 +26,7 @@ class SplashPage(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("splash-page")
-        self.setStyleSheet("background-color: #0c0d12;")
+        T.styled(self, "background-color: @bg;")
 
         # 经过时间驱动动画，避免依赖固定 tick 的累积误差
         self._elapsed = QtCore.QElapsedTimer()
@@ -33,9 +37,16 @@ class SplashPage(QtWidgets.QWidget):
         self._breath_timer.start(ANIM_TICK_MS)
 
         # logo 资源（加载失败则为 None，绘制时自动跳过）
-        self._school_img = self._load_logo(SCHOOL_LOGO_PATH)
         self._team_img = self._load_logo(TEAM_LOGO_PATH)
         self._logo_cache = {}   # (name, w, h) -> 预缩放 pixmap
+        self._school_img = None
+        self._apply_school_logo()
+        T.on_change(self._apply_school_logo)
+
+    def _apply_school_logo(self):
+        """按当前主题装载学校 logo，并清掉缩放缓存（图换了缓存必须失效）"""
+        self._school_img = self._load_logo(T.school_logo())
+        self._logo_cache.clear()
 
     @staticmethod
     def _load_logo(path):
@@ -93,10 +104,10 @@ class SplashPage(QtWidgets.QWidget):
         # --- 柔光晕：径向渐变模拟材质发光 ---
         glow_radius = 180 + 30 * breath
         glow_grad = QtGui.QRadialGradient(cx, cy, glow_radius)
-        glow_color = QtGui.QColor("#00d4aa")
+        glow_color = T.qcolor("accent")
         glow_color.setAlphaF(0.18 * breath + 0.05)
         glow_grad.setColorAt(0, glow_color)
-        transparent = QtGui.QColor("#00d4aa")
+        transparent = T.qcolor("accent")
         transparent.setAlpha(0)
         glow_grad.setColorAt(1, transparent)
         painter.setBrush(QtGui.QBrush(glow_grad))
@@ -120,7 +131,7 @@ class SplashPage(QtWidgets.QWidget):
         painter.translate(cx, cy)
         painter.scale(scale, scale)
         painter.setFont(title_font)
-        title_color = QtGui.QColor("#00d4aa")
+        title_color = T.qcolor("accent")
         title_color.setAlphaF(0.85 + 0.15 * breath)
         painter.setPen(title_color)
         painter.drawText(QtCore.QRect(int(-pair_w / 2), -65, title_w, 130),
@@ -154,7 +165,7 @@ class SplashPage(QtWidgets.QWidget):
         sub_font = QtGui.QFont("SF Pro Text", 15)
         sub_font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 1)
         painter.setFont(sub_font)
-        sub_color = QtGui.QColor("#8e8e93")
+        sub_color = T.qcolor("fg_dim")
         sub_color.setAlphaF(0.6 + 0.3 * breath)
         painter.setPen(sub_color)
         painter.drawText(QtCore.QRect(0, h // 2, w, 30),
@@ -164,7 +175,7 @@ class SplashPage(QtWidgets.QWidget):
         load_font = QtGui.QFont("SF Pro Text", 11)
         load_font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 2)
         painter.setFont(load_font)
-        load_color = QtGui.QColor("#6c6c70")
+        load_color = T.qcolor("fg_faint")
         load_color.setAlphaF(0.4 + 0.5 * breath)
         painter.setPen(load_color)
         painter.drawText(QtCore.QRect(0, h // 2 + 40, w, 25),

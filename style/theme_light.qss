@@ -1,0 +1,381 @@
+/* ============================================
+   MyOS — 浅色主题 (Light Theme)
+   设计理念：
+     - 浅灰底 + 白色卡片，用边框与层次区分信息密度
+     - 正文纯黑，保证强对比可读性
+     - 保留荧光绿标识色（浅底上压深一档，避免发白看不清）
+   配色：
+     基底色: #f0f0f2  浅灰
+     表面色: #ffffff  白
+     边框色: #dcdce2
+     强调色: #00a884  荧光绿(压深，用于文字/描边)
+     填充绿: #00d4aa  荧光绿(原色，用于实心按钮)
+     文字色: #000000  黑
+     次文字: #5f5f66
+   ============================================ */
+
+/* --- 全局 ---
+   注意：这里不声明 background-color。
+   QSS 的 QWidget 底色会被 QLabel 等子控件实际绘制，浅色主题下会在
+   白色卡片里出现一块块浅灰底；背景只交给窗口/对话框自己画。 */
+QWidget {
+    color: #000000;
+    /* 优先使用 Apple 系统字体，退化到跨平台系统字体栈 */
+    font-family: "SF Pro Display", "SF Pro Text", "Helvetica Neue",
+                 "Segoe UI", "Inter", "PingFang SC", system-ui, sans-serif;
+    font-size: 13px;
+    /* 光学字距：13px 接近正文，略微正字距提升可读性 */
+    letter-spacing: 0.01em;
+}
+
+/* --- 窗口 / 对话框底（QDialog 选择器同时覆盖 QMessageBox / QFileDialog） --- */
+QMainWindow, QDialog {
+    background-color: #f0f0f2;
+}
+
+/* --- 面板容器（卡片） ---
+   浅色下层次靠白底 + 细边框 + 圆角，不再依赖半透明 */
+QFrame#panel {
+    background-color: #ffffff;
+    border: 1px solid #dcdce2;
+    border-radius: 14px;
+    padding: 16px;
+}
+
+/* --- 面板标题 ---
+   大标题：负字距收紧（大字字距过开），细底线分隔 */
+QLabel#panel-title {
+    color: #00a884;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    padding-bottom: 6px;
+    /* 渐变下划线效果用 border 模拟 */
+    border-bottom: 1px solid #cde8e2;
+}
+
+/* --- 仪表盘主数值 ---
+   超大数字：更收紧的字距，模拟 SF Pro 的光学字号 */
+QLabel#dashboard-value {
+    color: #00a884;
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+QLabel#dashboard-label {
+    color: #6b6b72;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+QLabel#dashboard-unit {
+    color: #8a8a90;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}
+
+/* --- 状态指示灯 --- */
+QLabel#status-ok {
+    color: #00a884;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+QLabel#status-warn {
+    color: #d2571f;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+QLabel#status-error {
+    color: #d92d4e;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+/* --- 按钮 ---
+   即时反馈（hover/pressed 状态切换），柔和圆角
+   pressed 态轻微下沉感 */
+QPushButton {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #d0d0d6;
+    border-radius: 10px;
+    padding: 9px 22px;
+    font-size: 13px;
+    font-weight: 500;
+    min-height: 26px;
+    letter-spacing: 0.01em;
+}
+
+QPushButton:hover {
+    background-color: #eef7f5;
+    border-color: #00a884;
+    color: #00795f;
+}
+
+QPushButton:pressed {
+    background-color: #e0e0e6;
+    border-color: #00a884;
+}
+
+QPushButton#btn-primary {
+    background-color: #00d4aa;
+    color: #04241d;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 28px;
+    letter-spacing: 0.01em;
+}
+
+QPushButton#btn-primary:hover {
+    background-color: #00e8b8;
+}
+
+QPushButton#btn-primary:pressed {
+    background-color: #00b894;
+}
+
+QPushButton#btn-danger {
+    background-color: #e11d48;
+    color: #ffffff;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 28px;
+}
+
+QPushButton#btn-danger:hover {
+    background-color: #f43f5e;
+}
+
+QPushButton#btn-danger:pressed {
+    background-color: #be123c;
+}
+
+QPushButton#btn-warn {
+    background-color: #e8590c;
+    color: #ffffff;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 28px;
+}
+
+QPushButton#btn-warn:hover {
+    background-color: #f97316;
+}
+
+QPushButton#btn-warn:pressed {
+    background-color: #c2410c;
+}
+
+/* --- 滑块 ---
+   细轨道 + 大圆柄，柄 hover 放大效果由 QSS 有限支持 */
+QSlider::groove:horizontal {
+    background: #d8d8de;
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background: #00a884;
+    width: 18px;
+    height: 18px;
+    margin: -8px 0;
+    border-radius: 9px;
+}
+
+QSlider::handle:horizontal:hover {
+    background: #00c194;
+    width: 20px;
+    height: 20px;
+    margin: -9px 0;
+    border-radius: 10px;
+}
+
+QSlider::sub-page:horizontal {
+    background: #00a884;
+    border-radius: 2px;
+}
+
+/* --- 输入框 ---
+   聚焦时强调色边框，柔和圆角 */
+QLineEdit, QSpinBox, QDoubleSpinBox {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #d0d0d6;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 13px;
+    selection-background-color: #00d4aa;
+    selection-color: #04241d;
+}
+
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+    border-color: #00a884;
+    background-color: #ffffff;
+}
+
+/* --- 组合框 --- */
+QComboBox {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #d0d0d6;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 13px;
+}
+
+QComboBox:hover {
+    border-color: #00a884;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 22px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #000000;
+    selection-background-color: #00d4aa;
+    selection-color: #04241d;
+    border: 1px solid #d0d0d6;
+    border-radius: 8px;
+    padding: 4px;
+    outline: 0;
+}
+
+/* --- 分组框 ---
+   柔和卡片，标题字距收紧 */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e5;
+    border-radius: 12px;
+    margin-top: 18px;
+    padding: 18px 12px 12px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #00a884;
+    letter-spacing: 0.04em;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 14px;
+    padding: 0 6px;
+}
+
+/* --- 标签页 ---
+   选中态用底部细线，非选中态柔和 */
+QTabWidget::pane {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e5;
+    border-radius: 0 0 12px 12px;
+    padding: 10px;
+}
+
+QTabBar::tab {
+    background-color: transparent;
+    color: #6b6b72;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 20px;
+    margin-right: 2px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+QTabBar::tab:selected {
+    color: #00a884;
+    border-bottom: 2px solid #00a884;
+}
+
+QTabBar::tab:hover:!selected {
+    color: #33333a;
+}
+
+/* --- 滚动条 ---
+   极细、自动隐藏感、圆角 */
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical {
+    background: #c9c9d0;
+    border-radius: 4px;
+    min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #00a884;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 8px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #c9c9d0;
+    border-radius: 4px;
+    min-width: 30px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #00a884;
+}
+
+QScrollBar::add-line, QScrollBar::sub-line {
+    height: 0;
+    width: 0;
+}
+
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: transparent;
+}
+
+/* --- 进度条 --- */
+QProgressBar {
+    background-color: #e4e4e9;
+    border: none;
+    border-radius: 4px;
+    text-align: center;
+    color: #000000;
+    font-size: 11px;
+    height: 8px;
+}
+
+QProgressBar::chunk {
+    background-color: #00a884;
+    border-radius: 4px;
+}
+
+/* --- 启动画面 --- */
+QSplashScreen {
+    background-color: #f0f0f2;
+    color: #00a884;
+}
+
+/* --- 工具提示 ---
+   浅色浮层 + 细边框 */
+QToolTip {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #d0d0d6;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+}
