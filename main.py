@@ -19,7 +19,7 @@ def main():
     # ===== 第一步：创建 Qt 应用程序 =====
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("MyOS")
-    app.setApplicationVersion("1.0")
+    app.setApplicationVersion("1.1")
     # 关联到 /usr/share/applications/myos.desktop：
     # 桌面环境靠这个（配合 .desktop 里的 StartupWMClass）把窗口认成 MyOS 应用，
     # 否则图标无法正确显示运行状态，点图标也可能重新拉起一个实例。

@@ -278,7 +278,7 @@ class FooterBar(QtWidgets.QWidget):
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        ver = QtWidgets.QLabel("MyOS v1.0(内测)")
+        ver = QtWidgets.QLabel("MyOS v1.1")
         T.styled(ver, "color: @fg_faint; font-size: 10px; "
                       "letter-spacing: 0.04em;")
         layout.addWidget(ver)

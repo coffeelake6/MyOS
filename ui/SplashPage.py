@@ -169,7 +169,7 @@ class SplashPage(QtWidgets.QWidget):
         sub_color.setAlphaF(0.6 + 0.3 * breath)
         painter.setPen(sub_color)
         painter.drawText(QtCore.QRect(0, h // 2, w, 30),
-                         QtCore.Qt.AlignCenter, "A03 无人系统操作面板")
+                         QtCore.Qt.AlignCenter, "A03 ")
 
         # --- loading 文字 ---
         load_font = QtGui.QFont("SF Pro Text", 11)
@@ -179,6 +179,6 @@ class SplashPage(QtWidgets.QWidget):
         load_color.setAlphaF(0.4 + 0.5 * breath)
         painter.setPen(load_color)
         painter.drawText(QtCore.QRect(0, h // 2 + 40, w, 25),
-                         QtCore.Qt.AlignCenter, "v1.0  —  loading")
+                         QtCore.Qt.AlignCenter, "v1.1  —  loading")
 
         painter.end()
