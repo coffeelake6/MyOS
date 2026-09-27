@@ -1,0 +1,14 @@
+#IOU参数  
+
+left_calib_file: "/home/coffeelake/A03/perception/src/param/calib/A14/A14_left_hesai.yaml"
+right_calib_file: "/home/coffeelake/A03/perception/src/param/calib/A14/A14_right_hesai.yaml"
+
+lidar_sub: "/cluster_cloud"
+yolo_sub1: "/yolov11/detection_image01"
+yolo_sub2: "/yolov11/detection_image02"
+pointpillars_sub: "/detection_results"
+
+pub_colored_cloud: "colored_cloud"
+
+left_iou_threshold: 0.1
+right_iou_threshold: 0.1

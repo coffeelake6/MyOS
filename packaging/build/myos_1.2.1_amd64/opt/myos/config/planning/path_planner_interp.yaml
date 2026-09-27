@@ -1,0 +1,68 @@
+# Catmull-Rom/B-spline样条插值路径规划 参数
+
+# ==================== 话题配置 ====================
+topics:
+  sub_midpoints: "/midpoints"
+  sub_car_state: "/estimation/slam/state"
+  pub_trajectory: "spline_cloud"
+  pub_control_points: "visualization/control_points"
+  pub_point_markers: "visualization/point_markers"
+  pub_trajectory_cloud: "visualization/trajectory_cloud"
+  pub_status: "string_topic"
+
+# ==================== 节点配置 ====================
+node:
+  loop_rate: 20
+
+# ==================== 点云预处理 ====================
+preprocessing:
+  min_dist_threshold: 0.5 # 最小距离阈值，用于过滤初始点
+  start_angle_threshold: 0.7854 # 45度，用于过滤初始方向  
+
+# ==================== 贪心排序 ====================
+sorting:
+  max_attempts: 3 # 最大尝试次数
+  distance_threshold: 6.0 # 距离阈值
+  distance_scale_factor: 1.1 # 距离扩大因子
+  start_direction_cos_threshold: 0.707  # 45度，用于过滤初始方向
+  direction_cos_threshold: 0.2588  # 75度，用于过滤拐角点(夹角大于75度时候过滤)
+  remaining_ratio: 0.3 # 剩余距离比例阈值，用于判断路径是否闭合
+
+# ==================== 距离过滤 ====================
+filter:
+  min_distance_ratio: 0.5 # 最小距离比例阈值
+  corner_angle_threshold: 0.5236 # 30度，用于过滤拐角点
+
+# ==================== 移动平均平滑滤波 ====================
+smoothing:
+  window_size: 1
+
+# ==================== 路径闭合检测 ====================
+closure:
+  min_points: 20 # 最小点数阈值，用于判断路径是否闭合
+  close_dist_threshold: 5.0 # 关闭距离阈值，用于判断路径是否闭合
+  car_dist_threshold: 7.0 # 车辆距离阈值，用于判断路径是否闭合
+  car_yaw_threshold: 1.5708 # 90度，用于判断路径是否闭合
+
+# ==================== 插值配置 ====================
+interpolation:
+  ds: 0.1            # 插值步长（米），越小曲线越密集
+  spline_type: "bspline"    # 插值方法: "catmull_rom" 或 "bspline"
+                            # catmull_rom: 严格通过控制点， C1连续,bspline: 逼近控制点，C2连续，更平滑
+  
+  # ========== B样条专属参数 ==========
+  # 边界条件: "natural", "periodic", "clamped"
+  # natural: 自然边界，两端二阶导数为0（最常用，适合开放路径）
+  # periodic: 周期性边界，首尾连续（适合闭合路径如赛道）
+  # clamped: 夹紧边界，指定两端一阶导数
+  boundary_type: "natural"
+  
+  # 航向角/曲率平滑窗口大小（奇数，>=1）
+  smoothing_window: 1
+  
+  # 是否启用曲率平滑
+  enable_curvature_smoothing: false
+  
+  # 张力参数（0=标准B样条，>0增加张力使曲线更紧绷）
+  # 范围: 0 ~ 1 比较合适
+  tension: 0

@@ -1,0 +1,104 @@
+# ============================================================
+# MyOS 集中配置 — 所有可调数据都在这里修改，代码自动适配
+#
+# 修改方法：直接增删 / 改动下面的条目，保存后重启程序生效。
+#   - 新增一个话题  → 往对应列表加一行
+#   - 删除一个数据项 → 删掉对应整块（- key: ... 到下一项为止）
+#   - 没写全的键会自动用代码内置默认值兜底，写错类型也不会崩溃
+# 注意：话题名以 / 开头，脚本文件名需真实存在于 script_dir 目录。
+# ============================================================
+
+# ---------- 相机画面 ----------
+# initial_topics:  程序启动时两路相机默认订阅的话题（cam1 / cam2 固定槽位，只改值）
+# candidate_topics: 画面下方下拉框里的可选话题（增删即自动同步）
+camera:
+  initial_topics:
+    cam1: /01/image_rect_color
+    cam2: /02/image_rect_color
+  candidate_topics:
+    - /01/image_rect_color
+    - /02/image_rect_color
+    - /reprojection_image1
+    - /reprojection_image2
+    - /sync/img1
+    - /sync/img2
+    
+
+# ---------- 快捷启动 sh 脚本 ----------
+# script_dir: 脚本所在目录（相对本项目根目录，或写绝对路径）
+# scripts:    下拉框里列出的脚本文件名（增删脚本 = 修改这个列表）
+launch:
+  script_dir: /home/a03/A03/
+  scripts:
+    - test_highway.sh
+    - test_line.sh
+    - test_skidpad.sh
+
+# ---------- bag 包录制 ----------
+# record_topics: 录制面板里可勾选的话题（增删即自动同步）
+bag:
+  record_topics:
+    - /01/image_rect_color
+    - /02/image_rect_color
+    - /velodyne_points
+    - /pbox_pub/Imu0A
+    - /pbox_pub/Ins
+    - /control/pure_pursuit/control_command
+    - /servo_current_steer
+    - /estimation/slam/state
+    - /sync/img1
+    - /sync/img2
+    - /sync/lidar
+
+   # ---------- 实时数据面板 ----------
+# key:      面板里显示的名称
+# topic:    订阅的 ROS 话题（消息类型固定 std_msgs/Float32，取值字段固定 data）
+# unit:     单位后缀（不需要就留空）
+# decimals: 保留小数位（默认 2，可不写）
+data_items:
+  - key: YOLO推理时间
+    topic: /yolov11_time
+    unit: ms
+  - key: Pointpillars推理时间
+    topic: /pointpillars_time
+    unit: ms
+  - key: 融合速度
+    topic: /iou_fusion_time
+    unit: ms
+  - key: 运动补偿
+    topic: /motion_compensation_time
+    unit: ms
+  - key: 点云坐标转换
+    topic: /cluster_tf_time
+    unit: ms
+  - key: 三角剖分时间
+    topic: /triangulation_time
+    unit: ms
+  - key: 路径生成
+    topic: /path_generation_time
+    unit: ms
+  - key: 控制响应
+    topic: /control_time
+    unit: ms
+
+# ---------- 参数修改面板：各模块 yaml 目录 ----------
+# 参数修改面板按模块扫描目录下的全部 *.yaml，每个文件生成一张可编辑参数卡片，
+# 目录里增删 yaml 会自动同步；路径不存在时该模块显示空态（不影响其他模块）。
+# 可写绝对路径，也可写相对本项目根目录的相对路径；留空则用程序内置默认路径。
+param_dirs:
+  perception: /home/coffeelake/MyOS/MyOS/config/perception/   # 感知模块
+  mapping: /home/coffeelake/MyOS/MyOS/config/slam/       # 建图模块
+  planning: /home/coffeelake/MyOS/MyOS/config/planning/       # 规划模块
+
+# ---------- 参数修改面板：主配置 ----------
+# 主配置是整个程序的配置来源：它的 camera / launch / bag / data_items / param_dirs
+# 段以它为准，没写到的段沿用本文件。留空 = 全部用本文件。
+# 一般不用手改：在参数修改面板上点「浏览」选一个 config.yaml 会自动写回这里。
+param_panel:
+  main_config: /home/coffeelake/MyOS/MyOS/config/config.yaml
+
+# ---------- 界面主题 ----------
+# light = 灰底黑字（默认）   dark = 原来的黑底白字
+# 也可以在界面顶部的胶囊按钮上直接切换，会自动写回这里，下次启动生效。
+ui:
+  theme: dark

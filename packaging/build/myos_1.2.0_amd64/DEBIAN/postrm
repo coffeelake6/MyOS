@@ -1,0 +1,9 @@
+#!/bin/bash
+# postrm — 卸载后处理：刷新应用菜单，清掉 MyOS 的菜单缓存
+set -e
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications || true
+fi
+
+exit 0

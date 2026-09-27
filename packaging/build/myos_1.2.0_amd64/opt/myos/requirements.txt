@@ -1,0 +1,17 @@
+# MyOS 项目依赖
+#
+# 安装方式：pip3 install -r requirements.txt
+# 标准库（os / sys / math / threading / abc / dataclasses / typing）无需安装。
+
+# GUI 框架
+PySide6>=6.2
+
+# YAML 配置解析（rosparam / 参数文件读取）
+PyYAML>=5.4
+
+# ---------------------------------------------------------------------------
+# ROS 相关依赖不在本文件安装（随 ROS Noetic 通过 apt/rosdep 安装，非 pip）：
+#   ros-noetic-ros-comm   -> rospy / sensor_msgs
+#   ros-noetic-cv-bridge  -> cv_bridge
+# 示例：sudo apt install ros-noetic-ros-comm ros-noetic-cv-bridge
+# ---------------------------------------------------------------------------

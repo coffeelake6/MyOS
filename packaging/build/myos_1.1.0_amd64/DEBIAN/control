@@ -14,4 +14,4 @@ Description: MyOS — 基于 PySide6 的无人系统操作面板
   - PySide6：GUI 库，需手动安装：sudo pip3 install PySide6==6.2.4
  .
  安装后：应用菜单搜索 "MyOS" 打开，或在终端执行 myos
-Installed-Size: 2232
+Installed-Size: 2900

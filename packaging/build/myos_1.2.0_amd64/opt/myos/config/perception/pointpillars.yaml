@@ -1,0 +1,21 @@
+#PointPillars基本配置
+#导入的模型需要跟该模型所训练的yaml文件一致，否则识别不了
+
+#rospy
+#=======PointPillars_ros_path=======
+pointpillars_ros_path: "/home/coffeelake/A03/perception/src/Pointpillars/pointpillars_ros"
+config_path: "/home/coffeelake/A03/perception/src/Pointpillars/pointpillars_ros/tools/models/Pandar64/pointpillar.yaml"
+#"/home/coffeelake/A03/perception/src/Pointpillars/pointpillars_ros/tools/models/ATX/pointpillar.yaml"
+pth_path: "/home/coffeelake/A03/perception/src/Pointpillars/pointpillars_ros/tools/models/Pandar64/checkpoint_epoch_80.pth"
+#"/home/coffeelake/A03/perception/src/Pointpillars/pointpillars_ros/tools/models/ATX/checkpoint_epoch_300.pth"
+lidar_sub: "/sync/lidar" #/velodyne_points  /sync/lidar
+
+#ros C++
+
+#坐标系
+frameID: "world"
+#===点云过滤参数===
+distance_threshold: 100
+z: 0.7
+y_left: -30.0
+y_right: 30.0

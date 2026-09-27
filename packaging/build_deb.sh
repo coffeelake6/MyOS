@@ -18,11 +18,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJ="$(dirname "$HERE")"
 
 PKG_NAME=myos
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.2.1}"
 ARCH=amd64
 
 # 应用图标（换成 style/icon 下想要的图片即可）
-APP_ICON="style/icon/nailong.png"
+APP_ICON="style/icon/MeiYing.jpg"
 
 # 需要打进 deb 的项目内容
 APP_FILES=(
@@ -86,6 +86,14 @@ find "$BUILD" -type f -exec chmod 644 {} +
 chmod 755 "$BUILD/usr/bin/myos" \
           "$BUILD/DEBIAN/postinst" "$BUILD/DEBIAN/postrm"
 chmod 755 "$BUILD/opt/$PKG_NAME"/sh/*.sh 2>/dev/null || true
+
+# ---- 配置必须可写（装到 /opt/myos 后属主是 root，默认 644 普通用户写不进去）----
+# 程序运行时要把「主配置 yaml 路径」「界面主题」写回 config/config.yaml；
+# 参数修改面板保存时是在同目录写 .tmp 再 os.replace，所以目录本身也要可写，
+# 否则主配置选了没反应，重装后也一样（现象：选文件当场不生效、重启也不生效）。
+# 这里放开权限以兼容任意使用者；不注册 conffiles，因此重装会覆盖 config.yaml。
+find "$BUILD/opt/$PKG_NAME/config" -name '*.yaml' -exec chmod 666 {} +
+find "$BUILD/opt/$PKG_NAME/config" -type d -exec chmod 777 {} +
 
 # ---- 打包 ----
 echo "[4/4] 生成 deb: $OUT"
